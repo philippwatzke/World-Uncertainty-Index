@@ -1,0 +1,2051 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>World Uncertainty Index - Interaktive Karte</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #fafafa;
+            transition: background-color 0.3s ease;
+        }
+
+        body.dark-mode {
+            background: #1a1a1a;
+        }
+
+        body.dark-mode .info-panel,
+        body.dark-mode .stats-panel,
+        body.dark-mode .legend,
+        body.dark-mode .data-source,
+        body.dark-mode .toggle-stats,
+        body.dark-mode .country-profile-panel {
+            background: #2d2d2d;
+            color: #e0e0e0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+
+        body.dark-mode .info-panel h1,
+        body.dark-mode .stats-panel h3,
+        body.dark-mode .legend-title,
+        body.dark-mode .country-name,
+        body.dark-mode .toggle-stats {
+            color: #e0e0e0;
+        }
+
+        body.dark-mode .year-labels,
+        body.dark-mode .legend-labels,
+        body.dark-mode .search-icon,
+        body.dark-mode .stat-section h4,
+        body.dark-mode .global-stat-label,
+        body.dark-mode .sparkline-label {
+            color: #a0a0a0;
+        }
+
+        body.dark-mode .search-container input {
+            background: #1a1a1a;
+            border-color: #404040;
+            color: #e0e0e0;
+        }
+
+        body.dark-mode .search-results {
+            background: #2d2d2d;
+            border: 1px solid #404040;
+        }
+
+        body.dark-mode .search-result-item:hover,
+        body.dark-mode .country-list li:hover {
+            background: #3a3a3a;
+        }
+
+        body.dark-mode .country-list li {
+            background: #1a1a1a;
+        }
+
+        body.dark-mode .view-mode-toggle {
+            background: #1a1a1a;
+        }
+
+        body.dark-mode .view-mode-btn {
+            background: #2d2d2d;
+            color: #a0a0a0;
+        }
+
+        body.dark-mode .view-mode-btn.active {
+            background: #3498db;
+            color: white;
+        }
+
+        #map {
+            width: 100vw;
+            height: 100vh;
+            transition: filter 0.3s ease;
+        }
+
+        .leaflet-interactive {
+            transition: fill 0.6s ease, fill-opacity 0.3s ease;
+        }
+
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 20px 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-width: 350px;
+        }
+
+        .info-panel h1 {
+            font-size: 22px;
+            color: #2c3e50;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+
+        .info-panel .year-display {
+            font-size: 42px;
+            color: #e74c3c;
+            font-weight: bold;
+            margin: 15px 0 20px 0;
+            text-align: center;
+        }
+
+        .slider-container {
+            margin: 15px 0;
+        }
+
+        .slider-container input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider-container input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #e74c3c;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .slider-container input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            background: #c0392b;
+        }
+
+        .slider-container input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #e74c3c;
+            cursor: pointer;
+            border: none;
+        }
+
+        .year-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+
+        .event-markers {
+            position: relative;
+            height: 20px;
+            margin: 5px 0 0 0;
+        }
+
+        .event-marker {
+            position: absolute;
+            width: 3px;
+            height: 20px;
+            background: #e74c3c;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .event-marker:hover {
+            height: 25px;
+            background: #c0392b;
+        }
+
+        .event-marker::after {
+            content: attr(data-label);
+            position: absolute;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2c3e50;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+
+        .event-marker:hover::after {
+            opacity: 1;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            background: #3498db;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+
+        .btn:hover {
+            background: #2980b9;
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0) scale(0.98);
+        }
+
+        .btn.playing {
+            background: #e74c3c;
+        }
+
+        .btn.playing:hover {
+            background: #c0392b;
+        }
+
+        .view-mode-toggle {
+            margin-top: 15px;
+            display: flex;
+            gap: 5px;
+            background: #f8f9fa;
+            padding: 5px;
+            border-radius: 8px;
+        }
+
+        .view-mode-btn {
+            flex: 1;
+            padding: 10px 12px;
+            border: none;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            color: #7f8c8d;
+            transition: all 0.2s;
+        }
+
+        .view-mode-btn:hover {
+            color: #3498db;
+            transform: translateY(-1px);
+        }
+
+        .view-mode-btn.active {
+            background: #3498db;
+            color: white;
+            box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
+            transform: scale(1.05);
+        }
+
+        .search-container {
+            margin-top: 15px;
+            position: relative;
+        }
+
+        .search-container input {
+            width: 100%;
+            padding: 10px 35px 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .search-container input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        .search-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #7f8c8d;
+        }
+
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 5px;
+            display: none;
+            z-index: 1001;
+        }
+
+        .search-results.active {
+            display: block;
+        }
+
+        .search-result-item {
+            padding: 10px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.2s;
+        }
+
+        .search-result-item:hover {
+            background: #f8f9fa;
+        }
+
+        .search-result-item:last-child {
+            border-bottom: none;
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            z-index: 1000;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            min-width: 240px;
+        }
+
+        .legend-title {
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #2c3e50;
+            font-size: 13px;
+        }
+
+        .legend-gradient {
+            width: 200px;
+            height: 20px;
+            border-radius: 4px;
+        }
+
+        .legend-gradient.absolute {
+            background: linear-gradient(to right, 
+                #4575b4, #74add1, #abd9e9, #fee090, #fdae61, #f46d43, #d73027);
+        }
+
+        .legend-gradient.change {
+            background: linear-gradient(to right, 
+                #2ecc71, #90ee90, #f0f0f0, #ffb3b3, #e74c3c);
+        }
+
+        .legend-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #7f8c8d;
+            margin-top: 5px;
+            width: 200px;
+        }
+
+        .legend-labels span {
+            font-weight: 600;
+        }
+
+        .toggle-stats {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1001;
+            background: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            font-weight: 600;
+            color: #2c3e50;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .toggle-stats:hover {
+            background: #f8f9fa;
+            transform: translateY(-2px) scale(1.03);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+        }
+
+        .toggle-stats.active {
+            right: 360px;
+        }
+
+        .stats-panel {
+            position: absolute;
+            top: 20px;
+            right: -340px;
+            z-index: 1000;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            width: 320px;
+            max-height: 500px;
+            overflow-y: auto;
+            transition: right 0.3s ease;
+        }
+
+        .stats-panel.visible {
+            right: 20px;
+        }
+
+        .stats-panel h3 {
+            font-size: 16px;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-weight: 700;
+            border-bottom: 2px solid #e74c3c;
+            padding-bottom: 8px;
+        }
+
+        .stat-section {
+            margin-bottom: 20px;
+        }
+
+        .stat-section h4 {
+            font-size: 13px;
+            color: #7f8c8d;
+            margin-bottom: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .country-list {
+            list-style: none;
+        }
+
+        .country-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            margin-bottom: 5px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .country-list li:hover {
+            background: #e8f4f8;
+            transform: translateX(5px) scale(1.02);
+            box-shadow: 0 2px 8px rgba(52, 152, 219, 0.2);
+        }
+
+        .country-name {
+            font-size: 13px;
+            color: #2c3e50;
+            font-weight: 500;
+        }
+
+        .country-value {
+            font-size: 14px;
+            font-weight: 700;
+            color: #e74c3c;
+        }
+
+        .global-stats {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .global-stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .global-stat-item {
+            text-align: center;
+        }
+
+        .global-stat-label {
+            font-size: 11px;
+            opacity: 0.9;
+            margin-bottom: 3px;
+        }
+
+        .global-stat-value {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .data-source {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            z-index: 999;
+            background: white;
+            padding: 12px 18px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-size: 13px;
+            color: #2c3e50;
+        }
+
+        .data-source a {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+
+        .data-source a:hover {
+            color: #2980b9;
+            text-decoration: underline;
+        }
+
+        .data-source-icon {
+            margin-right: 5px;
+        }
+
+        /* Updated Keyboard Hint Styling */
+        .keyboard-hint {
+            position: absolute;
+            bottom: 160px;
+            left: 30px;
+            z-index: 999;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 12px;
+            color: #5a6c7d;
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border: 1px solid rgba(0,0,0,0.05);
+            backdrop-filter: blur(10px);
+        }
+
+        body.dark-mode .keyboard-hint {
+            background: rgba(45, 45, 45, 0.95);
+            color: #a0a0a0;
+            border-color: rgba(255,255,255,0.1);
+        }
+
+        .keyboard-hint.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .keyboard-hint kbd {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace;
+            font-size: 11px;
+            font-weight: 600;
+            color: #495057;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin: 0 2px;
+        }
+
+        body.dark-mode .keyboard-hint kbd {
+            background: linear-gradient(135deg, #2d2d2d, #3a3a3a);
+            border-color: #404040;
+            color: #e0e0e0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .keyboard-hint-text {
+            margin-right: 8px;
+            font-weight: 500;
+        }
+
+        .keyboard-hint-group {
+            display: flex;
+            align-items: center;
+            margin: 0 8px;
+        }
+
+        .keyboard-hint-separator {
+            margin: 0 8px;
+            font-weight: 500;
+            /* Remove the dot content */
+            content: none;
+        }
+
+        body.dark-mode .keyboard-hint-separator {
+            color: #6c757d;
+        }
+
+        /* Loading Animation */
+        .loading-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2000;
+            text-align: center;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        body.dark-mode .loading-spinner {
+            border-color: #2d2d2d;
+            border-top-color: #3498db;
+        }
+
+        .loading-text {
+            color: #2c3e50;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        body.dark-mode .loading-text {
+            color: #e0e0e0;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Fullscreen & Dark Mode Buttons */
+        .utility-buttons {
+            position: absolute;
+            bottom: 100px;
+            left: 30px;
+            z-index: 1002;
+            display: flex;
+            gap: 10px;
+        }
+
+        .utility-btn {
+            background: white;
+            border: none;
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            font-size: 18px;
+            transition: all 0.3s ease;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        body.dark-mode .utility-btn {
+            background: #2d2d2d;
+        }
+
+        .utility-btn:hover {
+            transform: translateY(-2px) scale(1.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .utility-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Country Profile Panel */
+        .country-profile-panel {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            z-index: 2001;
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .country-profile-panel.active {
+            opacity: 1;
+            pointer-events: all;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .profile-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            backdrop-filter: blur(4px);
+        }
+
+        .profile-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .profile-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        body.dark-mode .profile-header {
+            border-bottom-color: #404040;
+        }
+
+        .profile-header h2 {
+            font-size: 24px;
+            color: #2c3e50;
+            margin: 0;
+        }
+
+        body.dark-mode .profile-header h2 {
+            color: #e0e0e0;
+        }
+
+        .profile-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #7f8c8d;
+            cursor: pointer;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s;
+            line-height: 1;
+            padding: 0;
+            position: relative;
+        }
+
+        /* Improved close button centering - remove the transform and use flex centering */
+        .profile-close::before {
+            content: '×';
+            display: block;
+            line-height: 1;
+            margin: 0;
+            padding: 0;
+        }
+
+        .profile-close:hover {
+            background: #f0f0f0;
+            color: #2c3e50;
+        }
+
+        body.dark-mode .profile-close:hover {
+            background: #3a3a3a;
+            color: #e0e0e0;
+        }
+
+        .profile-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .profile-stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            transition: transform 0.2s;
+        }
+
+        .profile-stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        body.dark-mode .profile-stat-card {
+            background: #1a1a1a;
+        }
+
+        .profile-stat-label {
+            font-size: 11px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+
+        .profile-stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #2c3e50;
+        }
+
+        body.dark-mode .profile-stat-value {
+            color: #e0e0e0;
+        }
+
+        .profile-chart {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        body.dark-mode .profile-chart {
+            background: #1a1a1a;
+        }
+
+        .profile-chart h3 {
+            font-size: 16px;
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        body.dark-mode .profile-chart h3 {
+            color: #e0e0e0;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 200px;
+        }
+
+        .chart-svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .chart-line {
+            fill: none;
+            stroke: #3498db;
+            stroke-width: 3;
+        }
+
+        .chart-dot {
+            fill: #3498db;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .chart-dot:hover {
+            fill: #e74c3c;
+            r: 6;
+        }
+
+        .chart-axis {
+            stroke: #ccc;
+            stroke-width: 1;
+        }
+
+        body.dark-mode .chart-axis {
+            stroke: #404040;
+        }
+
+        .chart-label {
+            font-size: 11px;
+            fill: #7f8c8d;
+        }
+
+        body.dark-mode .chart-label {
+            fill: #a0a0a0;
+        }
+
+        /* Updated Chart Tooltip Styling */
+        .chart-tooltip {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.95);
+            color: #2c3e50;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            pointer-events: none;
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            border: 1px solid rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+            /* Remove transform and let JavaScript handle positioning */
+            white-space: nowrap;
+        }
+
+        body.dark-mode .chart-tooltip {
+            background: rgba(45, 45, 45, 0.95);
+            color: #e0e0e0;
+            border-color: rgba(255,255,255,0.1);
+        }
+
+        .chart-tooltip.active {
+            opacity: 1;
+            /* Remove transform and let JavaScript handle positioning */
+        }
+
+        .chart-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: rgba(255, 255, 255, 0.95);
+        }
+
+        body.dark-mode .chart-tooltip::after {
+            border-top-color: rgba(45, 45, 45, 0.95);
+        }
+
+        .leaflet-tooltip {
+            background: white;
+            border: 2px solid #2c3e50;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            color: #2c3e50;
+        }
+
+        .tooltip-country {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: #2c3e50;
+        }
+
+        .tooltip-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #e74c3c;
+        }
+
+        .tooltip-sparkline {
+            margin-top: 8px;
+            padding-top: 6px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .sparkline-container {
+            position: relative;
+            height: 30px;
+            margin-top: 4px;
+        }
+
+        .sparkline-svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .sparkline-line {
+            fill: none;
+            stroke: #3498db;
+            stroke-width: 2;
+        }
+
+        .sparkline-dot {
+            fill: #3498db;
+        }
+
+        .sparkline-dot.current {
+            fill: #e74c3c;
+            r: 3;
+        }
+
+        .sparkline-label {
+            font-size: 10px;
+            color: #7f8c8d;
+            text-align: center;
+            margin-top: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <!-- Updated Keyboard Hint - Moved above utility buttons -->
+    <div class="keyboard-hint" id="keyboardHint">
+        <span class="keyboard-hint-text">Tastaturkürzel:</span>
+        <span class="keyboard-hint-group">
+            <kbd>←</kbd><kbd>→</kbd>
+        </span>
+        <span class="keyboard-hint-separator"></span>
+        <span class="keyboard-hint-group">
+            <kbd>Leertaste</kbd>
+        </span>
+    </div>
+
+    <!-- Utility Buttons -->
+    <div class="utility-buttons">
+        <button class="utility-btn" id="darkModeBtn" title="Dark Mode">🌙</button>
+        <button class="utility-btn" id="fullscreenBtn" title="Vollbild">⛶</button>
+    </div>
+    
+    <div class="info-panel">
+        <h1>World Uncertainty Index</h1>
+        <div class="year-display" id="yearDisplay">2015</div>
+        
+        <div class="slider-container">
+            <input type="range" id="yearSlider" min="2015" max="2025" value="2015" step="1">
+            <div class="event-markers" id="eventMarkers"></div>
+            <div class="year-labels">
+                <span>2015</span>
+                <span>2025</span>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button class="btn" id="playBtn">▶ Abspielen</button>
+        </div>
+
+        <div class="view-mode-toggle">
+            <button class="view-mode-btn active" id="absoluteMode">Absolut</button>
+            <button class="view-mode-btn" id="changeMode">Änderung</button>
+        </div>
+
+        <div class="search-container">
+            <input type="text" id="countrySearch" placeholder="Land suchen...">
+            <span class="search-icon">🔍</span>
+            <div class="search-results" id="searchResults"></div>
+        </div>
+    </div>
+
+    <button class="toggle-stats" id="toggleStats">📊 Statistiken anzeigen</button>
+
+    <div class="stats-panel" id="statsPanel">
+        <h3>📊 Statistik-Dashboard</h3>
+        
+        <div class="global-stats">
+            <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">Globale Statistiken</div>
+            <div class="global-stats-grid">
+                <div class="global-stat-item">
+                    <div class="global-stat-label">Durchschnitt</div>
+                    <div class="global-stat-value" id="globalAvg">-</div>
+                </div>
+                <div class="global-stat-item">
+                    <div class="global-stat-label">Median</div>
+                    <div class="global-stat-value" id="globalMedian">-</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-section">
+            <h4>🔴 TOP 5 - HÖCHSTE UNSICHERHEIT</h4>
+            <ul class="country-list" id="topList"></ul>
+        </div>
+
+        <div class="stat-section">
+            <h4>🟢 BOTTOM 5 - NIEDRIGSTE UNSICHERHEIT</h4>
+            <ul class="country-list" id="bottomList"></ul>
+        </div>
+    </div>
+
+    <div class="legend" id="legend">
+        <div class="legend-title" id="legendTitle">Uncertainty Index</div>
+        <div class="legend-gradient absolute" id="legendGradient"></div>
+        <div class="legend-labels" id="legendLabels">
+            <span id="legendMin">0</span>
+            <span id="legendMax">100</span>
+        </div>
+    </div>
+
+    <div class="data-source">
+        <span class="data-source-icon">🔗</span>
+        Datenquelle: <a href="https://worlduncertaintyindex.com" target="_blank" rel="noopener">World Uncertainty Index</a>
+    </div>
+
+    <!-- Country Profile Panel -->
+    <div class="profile-overlay" id="profileOverlay"></div>
+    <div class="country-profile-panel" id="countryProfile">
+        <div class="profile-header">
+            <h2 id="profileCountryName">Land</h2>
+            <button class="profile-close" id="profileClose"></button>
+        </div>
+        <div class="profile-stats">
+            <div class="profile-stat-card">
+                <div class="profile-stat-label">Aktuell</div>
+                <div class="profile-stat-value" id="profileCurrent">-</div>
+            </div>
+            <div class="profile-stat-card">
+                <div class="profile-stat-label">Durchschnitt</div>
+                <div class="profile-stat-value" id="profileAverage">-</div>
+            </div>
+            <div class="profile-stat-card">
+                <div class="profile-stat-label">Ranking</div>
+                <div class="profile-stat-value" id="profileRank">-</div>
+            </div>
+        </div>
+        <div class="profile-chart">
+            <h3>Zeitverlauf 2015-2025</h3>
+            <div class="chart-container">
+                <svg class="chart-svg" id="profileChart" viewBox="0 0 500 200"></svg>
+                <div class="chart-tooltip" id="chartTooltip"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Animation -->
+    <div class="loading-container" id="loadingContainer">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Lade Daten...</div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script>
+        let map, geojsonLayer, wuiData, isPlaying = false, playInterval;
+        const START_YEAR = 2015;
+        const END_YEAR = 2025;
+        let maxUncertainty = 0;
+        let minUncertainty = 0;
+        let allCountries = [];
+        let viewMode = 'absolute';
+        
+        // Tile layers for light and dark mode
+        let lightTileLayer, darkTileLayer, currentTileLayer;
+
+        // Initialize utility buttons early
+        function initUtilityButtons() {
+            // Dark Mode Toggle
+            const darkModeBtn = document.getElementById('darkModeBtn');
+            const savedDarkMode = localStorage.getItem('darkMode') === 'true';
+            
+            // Set initial dark mode state
+            if (savedDarkMode) {
+                document.body.classList.add('dark-mode');
+                darkModeBtn.innerHTML = '☀️';
+                switchToDarkMap();
+            } else {
+                switchToLightMap();
+            }
+
+            darkModeBtn.addEventListener('click', function() {
+                const isDark = !document.body.classList.contains('dark-mode');
+                
+                if (isDark) {
+                    document.body.classList.add('dark-mode');
+                    this.innerHTML = '☀️';
+                    switchToDarkMap();
+                } else {
+                    document.body.classList.remove('dark-mode');
+                    this.innerHTML = '🌙';
+                    switchToLightMap();
+                }
+                
+                localStorage.setItem('darkMode', isDark);
+            });
+
+            // Fullscreen Toggle
+            document.getElementById('fullscreenBtn').addEventListener('click', function() {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(err => {
+                        console.log('Fullscreen not available:', err);
+                    });
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    }
+                }
+            });
+
+            // Country Profile Close
+            document.getElementById('profileClose').addEventListener('click', function(e) {
+                e.stopPropagation();
+                closeCountryProfile();
+            });
+            
+            document.getElementById('profileOverlay').addEventListener('click', function() {
+                closeCountryProfile();
+            });
+
+            // ESC key to close profile
+            document.addEventListener('keydown', function(e) {
+                if (e.code === 'Escape' && document.getElementById('countryProfile').classList.contains('active')) {
+                    closeCountryProfile();
+                }
+            });
+        }
+
+        function switchToDarkMap() {
+            if (currentTileLayer) {
+                map.removeLayer(currentTileLayer);
+            }
+            if (!darkTileLayer) {
+                darkTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                    attribution: '© OpenStreetMap contributors © CARTO',
+                    subdomains: 'abcd',
+                    maxZoom: 20
+                });
+            }
+            darkTileLayer.addTo(map);
+            currentTileLayer = darkTileLayer;
+        }
+
+        function switchToLightMap() {
+            if (currentTileLayer) {
+                map.removeLayer(currentTileLayer);
+            }
+            if (!lightTileLayer) {
+                lightTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                    attribution: '© OpenStreetMap contributors © CARTO',
+                    subdomains: 'abcd',
+                    maxZoom: 20
+                });
+            }
+            lightTileLayer.addTo(map);
+            currentTileLayer = lightTileLayer;
+        }
+
+        function getUncertaintyValue(countryName, year) {
+            if (!wuiData || !wuiData.features) return null;
+            const data = wuiData.features.find(f => 
+                f.properties.name === countryName && 
+                f.properties.year_num === year
+            );
+            return data ? data.properties.uncertainty_index : null;
+        }
+
+        const events = [
+            { year: 2016, label: "Brexit-Referendum" },
+            { year: 2017, label: "Trump Amtsantritt" },
+            { year: 2020, label: "COVID-19 Pandemie" },
+            { year: 2022, label: "Ukraine-Krieg" },
+            { year: 2024, label: "US-Wahl" }
+        ];
+
+        function initMap() {
+            map = L.map('map', {
+                center: [20, 0],
+                zoom: 2,
+                minZoom: 2,
+                maxZoom: 8,
+                zoomControl: false,
+                worldCopyJump: true
+            });
+
+            // Initialize with light map by default
+            switchToLightMap();
+        }
+
+        function getColor(value, isChange = false) {
+            if (value == null || isNaN(value)) return '#e8e8e8';
+            
+            if (isChange) {
+                const maxChange = 5;
+                
+                if (Math.abs(value) < 0.05) {
+                    return '#f0f0f0';
+                }
+                
+                if (value < 0) {
+                    const intensity = Math.min(Math.abs(value) / maxChange, 1);
+                    const r = Math.round(200 - (200 - 46) * intensity);
+                    const g = Math.round(240 - (240 - 204) * intensity);
+                    const b = Math.round(200 - (200 - 113) * intensity);
+                    return `rgb(${r}, ${g}, ${b})`;
+                } else {
+                    const intensity = Math.min(value / maxChange, 1);
+                    const r = Math.round(255 - (255 - 231) * intensity);
+                    const g = Math.round(200 - (200 - 76) * intensity);
+                    const b = Math.round(200 - (200 - 60) * intensity);
+                    return `rgb(${r}, ${g}, ${b})`;
+                }
+            } else {
+                const normalized = (value - minUncertainty) / (maxUncertainty - minUncertainty);
+                const clamped = Math.max(0, Math.min(1, normalized));
+                
+                const colors = [
+                    [69, 117, 180],
+                    [116, 173, 209],
+                    [171, 217, 233],
+                    [254, 224, 144],
+                    [253, 174, 97],
+                    [244, 109, 67],
+                    [215, 48, 39]
+                ];
+                
+                const idx = clamped * (colors.length - 1);
+                const lower = Math.floor(idx);
+                const upper = Math.ceil(idx);
+                const t = idx - lower;
+                
+                const c1 = colors[lower];
+                const c2 = colors[upper];
+                
+                const r = Math.round(c1[0] + (c2[0] - c1[0]) * t);
+                const g = Math.round(c1[1] + (c2[1] - c1[1]) * t);
+                const b = Math.round(c1[2] + (c2[2] - c1[2]) * t);
+                
+                return `rgb(${r}, ${g}, ${b})`;
+            }
+        }
+
+        function style(feature) {
+            const year = parseInt(document.getElementById('yearSlider').value);
+            const countryName = feature.properties.name;
+            
+            if (viewMode === 'change') {
+                const currentValue = getUncertaintyValue(countryName, year);
+                const prevValue = getUncertaintyValue(countryName, year - 1);
+                
+                if (currentValue != null && prevValue != null) {
+                    const change = currentValue - prevValue;
+                    return {
+                        fillColor: getColor(change, true),
+                        weight: 1,
+                        opacity: 1,
+                        color: 'white',
+                        fillOpacity: 0.9
+                    };
+                }
+            } else {
+                const value = getUncertaintyValue(countryName, year);
+                
+                if (value != null) {
+                    return {
+                        fillColor: getColor(value, false),
+                        weight: 1,
+                        opacity: 1,
+                        color: 'white',
+                        fillOpacity: 0.8
+                    };
+                }
+            }
+            
+            return {
+                fillColor: '#e8e8e8',
+                weight: 1,
+                opacity: 1,
+                color: 'white',
+                fillOpacity: 0.8
+            };
+        }
+
+        function createSparkline(countryName, currentYear) {
+            const years = [];
+            const values = [];
+            
+            // Sammle Daten für die letzten 5 Jahre (oder weniger, wenn am Anfang)
+            const startYear = Math.max(2010, currentYear - 4);
+            for (let y = startYear; y <= currentYear; y++) {
+                const data = wuiData.features.find(f => 
+                    f.properties.name === countryName && 
+                    f.properties.year_num === y
+                );
+                if (data) {
+                    years.push(y);
+                    values.push(data.properties.uncertainty_index);
+                }
+            }
+            
+            // Zeige Sparkline nur wenn mindestens 2 Datenpunkte vorhanden
+            if (values.length < 2) return '';
+            
+            const max = Math.max(...values);
+            const min = Math.min(...values);
+            const range = max - min || 1;
+            
+            const width = 120;
+            const height = 30;
+            const padding = 2;
+            
+            const points = values.map((val, idx) => {
+                const x = padding + (idx / (values.length - 1)) * (width - 2 * padding);
+                const y = height - padding - ((val - min) / range) * (height - 2 * padding);
+                return { x, y, isCurrent: years[idx] === currentYear };
+            });
+            
+            const pathData = points.map((p, i) => 
+                `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`
+            ).join(' ');
+            
+            const dots = points.map(p => 
+                `<circle cx="${p.x}" cy="${p.y}" r="${p.isCurrent ? 3 : 2}" class="sparkline-dot ${p.isCurrent ? 'current' : ''}" />`
+            ).join('');
+            
+            return `
+                <div class="tooltip-sparkline">
+                    <div class="sparkline-label">Trend ${years[0]}-${years[years.length - 1]}</div>
+                    <div class="sparkline-container">
+                        <svg class="sparkline-svg" viewBox="0 0 ${width} ${height}">
+                            <path d="${pathData}" class="sparkline-line" />
+                            ${dots}
+                        </svg>
+                    </div>
+                </div>
+            `;
+        }
+
+        function highlightFeature(e) {
+            const layer = e.target;
+            layer.setStyle({
+                weight: 2,
+                color: '#333',
+                fillOpacity: 1
+            });
+            layer.bringToFront();
+
+            const year = parseInt(document.getElementById('yearSlider').value);
+            const countryName = layer.feature.properties.name;
+            const countryData = wuiData.features.find(f => 
+                f.properties.name === countryName && 
+                f.properties.year_num === year
+            );
+
+            if (countryData) {
+                let tooltipContent = `
+                    <div class="tooltip-country">${countryData.properties.name}</div>
+                    <div class="tooltip-value">${countryData.properties.uncertainty_index.toFixed(1)}</div>
+                `;
+                
+                if (viewMode === 'change' && year > 2014) {
+                    const prevData = wuiData.features.find(f => 
+                        f.properties.name === countryName && 
+                        f.properties.year_num === year - 1
+                    );
+                    if (prevData) {
+                        const change = countryData.properties.uncertainty_index - prevData.properties.uncertainty_index;
+                        const arrow = change > 0 ? '↑' : '↓';
+                        const color = change > 0 ? '#e74c3c' : '#2ecc71';
+                        tooltipContent += `<div style="margin-top: 4px; color: ${color}; font-size: 12px;">${arrow} ${Math.abs(change).toFixed(1)} seit ${year - 1}</div>`;
+                    }
+                }
+                
+                tooltipContent += createSparkline(countryName, year);
+                
+                layer.bindTooltip(tooltipContent, {
+                    permanent: false,
+                    direction: 'top',
+                    className: 'custom-tooltip'
+                }).openTooltip();
+            }
+        }
+
+        function resetHighlight(e) {
+            const layer = e.target;
+            geojsonLayer.resetStyle(layer);
+            if (layer.getTooltip()) {
+                layer.unbindTooltip();
+            }
+        }
+
+        function onEachFeature(feature, layer) {
+            layer.on({
+                mouseover: highlightFeature,
+                mouseout: resetHighlight,
+                click: function(e) {
+                    openCountryProfile(feature.properties.name);
+                }
+            });
+        }
+
+        function zoomToCountry(countryName) {
+            geojsonLayer.eachLayer(layer => {
+                if (layer.feature.properties.name === countryName) {
+                    map.fitBounds(layer.getBounds(), { padding: [50, 50] });
+                    layer.fire('mouseover');
+                }
+            });
+        }
+
+        function openCountryProfile(countryName) {
+            const year = parseInt(document.getElementById('yearSlider').value);
+            
+            // Sammle alle Daten für dieses Land
+            const countryData = [];
+            for (let y = START_YEAR; y <= END_YEAR; y++) {
+                const value = getUncertaintyValue(countryName, y);
+                if (value != null) {
+                    countryData.push({ year: y, value: value });
+                }
+            }
+            
+            if (countryData.length === 0) return;
+            
+            // Aktueller Wert
+            const currentValue = getUncertaintyValue(countryName, year);
+            
+            // Durchschnitt über alle Jahre
+            const average = countryData.reduce((sum, d) => sum + d.value, 0) / countryData.length;
+            
+            // Ranking berechnen
+            const allCurrentValues = wuiData.features
+                .filter(f => f.properties.year_num === year && f.properties.uncertainty_index != null)
+                .map(f => ({ name: f.properties.name, value: f.properties.uncertainty_index }))
+                .sort((a, b) => b.value - a.value);
+            
+            const rank = allCurrentValues.findIndex(d => d.name === countryName) + 1;
+            
+            // Fülle Panel
+            document.getElementById('profileCountryName').textContent = countryName;
+            document.getElementById('profileCurrent').textContent = currentValue ? currentValue.toFixed(1) : '-';
+            document.getElementById('profileAverage').textContent = average.toFixed(1);
+            document.getElementById('profileRank').textContent = `#${rank} / ${allCurrentValues.length}`;
+            
+            // Zeichne Chart
+            drawProfileChart(countryData, year);
+            
+            // Zeige Panel
+            document.getElementById('profileOverlay').classList.add('active');
+            document.getElementById('countryProfile').classList.add('active');
+        }
+
+        function drawProfileChart(data, currentYear) {
+            const svg = document.getElementById('profileChart');
+            const tooltip = document.getElementById('chartTooltip');
+            const width = 500;
+            const height = 200;
+            const padding = 40;
+            
+            // Clear previous
+            svg.innerHTML = '';
+            
+            if (data.length === 0) return;
+            
+            const minValue = Math.min(...data.map(d => d.value));
+            const maxValue = Math.max(...data.map(d => d.value));
+            const valueRange = maxValue - minValue || 1;
+            
+            const minYear = Math.min(...data.map(d => d.year));
+            const maxYear = Math.max(...data.map(d => d.year));
+            const yearRange = maxYear - minYear || 1;
+            
+            // Achsen
+            const axisGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            
+            // Y-Achse
+            const yAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            yAxis.setAttribute('x1', padding);
+            yAxis.setAttribute('y1', padding);
+            yAxis.setAttribute('x2', padding);
+            yAxis.setAttribute('y2', height - padding);
+            yAxis.setAttribute('class', 'chart-axis');
+            axisGroup.appendChild(yAxis);
+            
+            // X-Achse
+            const xAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            xAxis.setAttribute('x1', padding);
+            xAxis.setAttribute('y1', height - padding);
+            xAxis.setAttribute('x2', width - padding);
+            xAxis.setAttribute('y2', height - padding);
+            xAxis.setAttribute('class', 'chart-axis');
+            axisGroup.appendChild(xAxis);
+            
+            svg.appendChild(axisGroup);
+            
+            // Berechne Punkte
+            const points = data.map(d => {
+                const x = padding + ((d.year - minYear) / yearRange) * (width - 2 * padding);
+                const y = height - padding - ((d.value - minValue) / valueRange) * (height - 2 * padding);
+                return { x, y, year: d.year, value: d.value };
+            });
+            
+            // Linie
+            const pathData = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', pathData);
+            path.setAttribute('class', 'chart-line');
+            svg.appendChild(path);
+            
+            // Punkte mit Hover-Effekt
+            points.forEach(p => {
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', p.x);
+                circle.setAttribute('cy', p.y);
+                circle.setAttribute('r', p.year === currentYear ? 6 : 4);
+                circle.setAttribute('class', 'chart-dot');
+                circle.style.fill = p.year === currentYear ? '#e74c3c' : '#3498db';
+                circle.style.cursor = 'pointer';
+                
+                // Hover-Events für Tooltip
+                circle.addEventListener('mouseover', function(e) {
+                    const svgRect = svg.getBoundingClientRect();
+                    const chartContainer = svg.closest('.chart-container');
+                    const containerRect = chartContainer.getBoundingClientRect();
+                    
+                    tooltip.textContent = `${p.year}: ${p.value.toFixed(1)}`;
+                    
+                    // Berechne die tatsächliche Position des Punktes auf dem Bildschirm
+                    const pointX = svgRect.left - containerRect.left + (p.x / 500 * svgRect.width);
+                    const pointY = svgRect.top - containerRect.top + (p.y / 200 * svgRect.height);
+                    
+                    // Positioniere Tooltip direkt über dem Punkt
+                    // Zentriere horizontal und platziere über dem Punkt
+                    tooltip.style.left = pointX + 'px';
+                    tooltip.style.top = (pointY - 50) + 'px';
+                    tooltip.style.transform = 'translateX(-50%)';
+                    tooltip.classList.add('active');
+                });
+                
+                circle.addEventListener('mouseout', function() {
+                    tooltip.classList.remove('active');
+                });
+                svg.appendChild(circle);
+            });
+            
+            // Labels
+            [minYear, Math.floor((minYear + maxYear) / 2), maxYear].forEach(year => {
+                const x = padding + ((year - minYear) / yearRange) * (width - 2 * padding);
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', x);
+                text.setAttribute('y', height - padding + 20);
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('class', 'chart-label');
+                text.textContent = year;
+                svg.appendChild(text);
+            });
+        }
+
+        function closeCountryProfile() {
+            document.getElementById('profileOverlay').classList.remove('active');
+            document.getElementById('countryProfile').classList.remove('active');
+        }
+
+        function updateStats() {
+            const year = parseInt(document.getElementById('yearSlider').value);
+            
+            if (viewMode === 'change') {
+                const changes = [];
+                
+                wuiData.features
+                    .filter(f => f.properties.year_num === year)
+                    .forEach(currentFeature => {
+                        const countryName = currentFeature.properties.name;
+                        const currentValue = currentFeature.properties.uncertainty_index;
+                        const prevValue = getUncertaintyValue(countryName, year - 1);
+                        
+                        if (currentValue != null && prevValue != null) {
+                            const change = currentValue - prevValue;
+                            changes.push({
+                                name: countryName,
+                                value: change
+                            });
+                        }
+                    });
+                
+                if (changes.length === 0) return;
+                
+                const sorted = [...changes].sort((a, b) => b.value - a.value);
+                const top5 = sorted.slice(0, 5);
+                const bottom5 = sorted.slice(-5).reverse();
+                
+                const values = changes.map(d => d.value);
+                const avg = values.reduce((a, b) => a + b, 0) / values.length;
+                const median = values.sort((a, b) => a - b)[Math.floor(values.length / 2)];
+                
+                document.getElementById('globalAvg').textContent = (avg >= 0 ? '+' : '') + avg.toFixed(2);
+                document.getElementById('globalMedian').textContent = (median >= 0 ? '+' : '') + median.toFixed(2);
+                
+                const topList = document.getElementById('topList');
+                topList.innerHTML = top5.map((item, idx) => {
+                    const arrow = item.value > 0 ? '↑' : '↓';
+                    const color = item.value > 0 ? '#e74c3c' : '#2ecc71';
+                    return `
+                        <li onclick="zoomToCountry('${item.name}')">
+                            <span class="country-name">${idx + 1}. ${item.name}</span>
+                            <span class="country-value" style="color: ${color}">${arrow} ${Math.abs(item.value).toFixed(2)}</span>
+                        </li>
+                    `;
+                }).join('');
+                
+                const bottomList = document.getElementById('bottomList');
+                bottomList.innerHTML = bottom5.map((item, idx) => {
+                    const arrow = item.value > 0 ? '↑' : '↓';
+                    const color = item.value > 0 ? '#e74c3c' : '#2ecc71';
+                    return `
+                        <li onclick="zoomToCountry('${item.name}')">
+                            <span class="country-name">${idx + 1}. ${item.name}</span>
+                            <span class="country-value" style="color: ${color}">${arrow} ${Math.abs(item.value).toFixed(2)}</span>
+                        </li>
+                    `;
+                }).join('');
+                
+                document.querySelector('#statsPanel h3').textContent = '📊 Änderungs-Dashboard';
+                document.querySelectorAll('.stat-section h4')[0].innerHTML = '🔴 TOP 5 - GRÖSSTE ZUNAHME';
+                document.querySelectorAll('.stat-section h4')[1].innerHTML = '🟢 TOP 5 - GRÖSSTE ABNAHME';
+                
+            } else {
+                const yearData = wuiData.features
+                    .filter(f => f.properties.year_num === year && f.properties.uncertainty_index)
+                    .map(f => ({
+                        name: f.properties.name,
+                        value: f.properties.uncertainty_index
+                    }));
+
+                if (yearData.length === 0) return;
+
+                const sorted = [...yearData].sort((a, b) => b.value - a.value);
+                const top5 = sorted.slice(0, 5);
+                const bottom5 = sorted.slice(-5).reverse();
+
+                const values = yearData.map(d => d.value);
+                const avg = values.reduce((a, b) => a + b, 0) / values.length;
+                const median = values.sort((a, b) => a - b)[Math.floor(values.length / 2)];
+
+                document.getElementById('globalAvg').textContent = avg.toFixed(1);
+                document.getElementById('globalMedian').textContent = median.toFixed(1);
+
+                const topList = document.getElementById('topList');
+                topList.innerHTML = top5.map((item, idx) => `
+                    <li onclick="zoomToCountry('${item.name}')">
+                        <span class="country-name">${idx + 1}. ${item.name}</span>
+                        <span class="country-value">${item.value.toFixed(1)}</span>
+                    </li>
+                `).join('');
+
+                const bottomList = document.getElementById('bottomList');
+                bottomList.innerHTML = bottom5.map((item, idx) => `
+                    <li onclick="zoomToCountry('${item.name}')">
+                        <span class="country-name">${idx + 1}. ${item.name}</span>
+                        <span class="country-value">${item.value.toFixed(1)}</span>
+                    </li>
+                `).join('');
+                
+                document.querySelector('#statsPanel h3').textContent = '📊 Statistik-Dashboard';
+                document.querySelectorAll('.stat-section h4')[0].innerHTML = '🔴 TOP 5 - HÖCHSTE UNSICHERHEIT';
+                document.querySelectorAll('.stat-section h4')[1].innerHTML = '🟢 BOTTOM 5 - NIEDRIGSTE UNSICHERHEIT';
+            }
+        }
+
+        function updateLegend() {
+            const title = document.getElementById('legendTitle');
+            const gradient = document.getElementById('legendGradient');
+            const labels = document.getElementById('legendLabels');
+            
+            if (viewMode === 'change') {
+                title.textContent = 'Änderung zum Vorjahr';
+                gradient.className = 'legend-gradient change';
+                labels.innerHTML = `
+                    <span>-5 (gesunken)</span>
+                    <span>0</span>
+                    <span>+5 (gestiegen)</span>
+                `;
+            } else {
+                title.textContent = 'Uncertainty Index';
+                gradient.className = 'legend-gradient absolute';
+                labels.innerHTML = `
+                    <span id="legendMin">${minUncertainty.toFixed(0)}</span>
+                    <span id="legendMax">${maxUncertainty.toFixed(0)}</span>
+                `;
+            }
+        }
+
+        function updateMap() {
+            const year = parseInt(document.getElementById('yearSlider').value);
+            document.getElementById('yearDisplay').textContent = year;
+            
+            if (geojsonLayer) {
+                geojsonLayer.setStyle(style);
+            }
+
+            updateStats();
+            updateLegend();
+        }
+
+        function createEventMarkers() {
+            const container = document.getElementById('eventMarkers');
+            
+            events.forEach(event => {
+                const position = ((event.year - START_YEAR) / (END_YEAR - START_YEAR)) * 100;
+                const marker = document.createElement('div');
+                marker.className = 'event-marker';
+                marker.style.left = `${position}%`;
+                marker.setAttribute('data-label', event.label);
+                marker.onclick = () => {
+                    document.getElementById('yearSlider').value = event.year;
+                    updateMap();
+                };
+                container.appendChild(marker);
+            });
+        }
+
+        function setupSearch() {
+            const searchInput = document.getElementById('countrySearch');
+            const searchResults = document.getElementById('searchResults');
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase().trim();
+                
+                if (query.length < 2) {
+                    searchResults.classList.remove('active');
+                    return;
+                }
+
+                const matches = allCountries.filter(country => 
+                    country.toLowerCase().includes(query)
+                ).slice(0, 10);
+
+                if (matches.length > 0) {
+                    searchResults.innerHTML = matches.map(country => `
+                        <div class="search-result-item" onclick="selectCountry('${country}')">
+                            ${country}
+                        </div>
+                    `).join('');
+                    searchResults.classList.add('active');
+                } else {
+                    searchResults.classList.remove('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.search-container')) {
+                    searchResults.classList.remove('active');
+                }
+            });
+        }
+
+        function selectCountry(countryName) {
+            document.getElementById('countrySearch').value = countryName;
+            document.getElementById('searchResults').classList.remove('active');
+            zoomToCountry(countryName);
+        }
+
+        async function loadData() {
+            try {
+                let response;
+                const paths = ['wui_data.geojson', './wui_data.geojson', 'plots/wui_data.geojson'];
+                
+                for (const path of paths) {
+                    try {
+                        response = await fetch(path);
+                        if (response.ok) {
+                            console.log(`✓ Datei gefunden unter: ${path}`);
+                            break;
+                        }
+                    } catch (e) {
+                        continue;
+                    }
+                }
+                
+                if (!response || !response.ok) {
+                    throw new Error('GeoJSON konnte nicht geladen werden.');
+                }
+                
+                wuiData = await response.json();
+                
+                const allValues = wuiData.features
+                    .map(f => f.properties.uncertainty_index)
+                    .filter(v => v != null && !isNaN(v));
+                
+                minUncertainty = Math.min(...allValues);
+                maxUncertainty = Math.max(...allValues);
+                
+                allCountries = [...new Set(wuiData.features.map(f => f.properties.name))].sort();
+                
+                const uniqueCountries = {};
+                wuiData.features.forEach(feature => {
+                    const name = feature.properties.name;
+                    if (!uniqueCountries[name]) {
+                        uniqueCountries[name] = feature;
+                    }
+                });
+                
+                const worldData = {
+                    type: 'FeatureCollection',
+                    features: Object.values(uniqueCountries)
+                };
+                
+                geojsonLayer = L.geoJSON(worldData, {
+                    style: style,
+                    onEachFeature: onEachFeature
+                }).addTo(map);
+                
+                // Hide loading animation
+                document.getElementById('loadingContainer').style.display = 'none';
+                
+                updateLegend();
+                updateStats();
+                createEventMarkers();
+                setupSearch();
+                setupEventListeners();
+                
+                console.log(`✓ ${wuiData.features.length} Datensätze geladen`);
+                
+            } catch (error) {
+                console.error('Fehler beim Laden der Daten:', error);
+                document.getElementById('loadingContainer').innerHTML = 
+                    '<div style="color: #e74c3c; text-align: center;"><strong>Fehler!</strong><br>Daten konnten nicht geladen werden.<br>' +
+                    'Stelle sicher, dass:<br>1. Die Datei wui_data.geojson existiert<br>' +
+                    '2. Du einen lokalen Webserver verwendest</div>';
+            }
+        }
+
+        function setupEventListeners() {
+            document.getElementById('playBtn').addEventListener('click', function() {
+                if (!isPlaying) {
+                    isPlaying = true;
+                    this.textContent = '⏸ Pause';
+                    this.classList.add('playing');
+                    
+                    playInterval = setInterval(() => {
+                        const slider = document.getElementById('yearSlider');
+                        let year = parseInt(slider.value);
+                        
+                        if (year >= END_YEAR) {
+                            year = START_YEAR;
+                        } else {
+                            year++;
+                        }
+                        
+                        slider.value = year;
+                        updateMap();
+                    }, 1500);
+                } else {
+                    isPlaying = false;
+                    this.textContent = '▶ Abspielen';
+                    this.classList.remove('playing');
+                    clearInterval(playInterval);
+                }
+            });
+
+            document.getElementById('yearSlider').addEventListener('input', function() {
+                updateMap();
+                
+                if (isPlaying) {
+                    clearInterval(playInterval);
+                    isPlaying = false;
+                    document.getElementById('playBtn').textContent = '▶ Abspielen';
+                    document.getElementById('playBtn').classList.remove('playing');
+                }
+            });
+
+            document.getElementById('toggleStats').addEventListener('click', function() {
+                const panel = document.getElementById('statsPanel');
+                const isVisible = panel.classList.contains('visible');
+                
+                if (isVisible) {
+                    panel.classList.remove('visible');
+                    this.classList.remove('active');
+                    this.innerHTML = '📊 Statistiken anzeigen';
+                } else {
+                    panel.classList.add('visible');
+                    this.classList.add('active');
+                    this.innerHTML = '✖ Statistiken schließen';
+                }
+            });
+
+            document.getElementById('absoluteMode').addEventListener('click', function() {
+                viewMode = 'absolute';
+                this.classList.add('active');
+                document.getElementById('changeMode').classList.remove('active');
+                updateMap();
+            });
+
+            document.getElementById('changeMode').addEventListener('click', function() {
+                viewMode = 'change';
+                this.classList.add('active');
+                document.getElementById('absoluteMode').classList.remove('active');
+                updateMap();
+            });
+
+            document.addEventListener('keydown', function(e) {
+                // Ignoriere wenn in Input-Feld oder wenn Karte gerade gedraggt wird
+                if (e.target.tagName === 'INPUT' || e.target.isContentEditable) return;
+                
+                // Prüfe ob die Karte gerade aktiv ist (Mauszeiger ist über der Karte)
+                // Verhindere Pfeiltasten nur wenn sie die Karte beeinflussen würden
+                if (document.activeElement === document.body || 
+                    document.activeElement.tagName === 'BUTTON' ||
+                    !e.target.closest('#map')) {
+                    
+                    const slider = document.getElementById('yearSlider');
+                    let year = parseInt(slider.value);
+                    
+                    if (e.code === 'ArrowLeft') {
+                        if (year > START_YEAR) {
+                            slider.value = year - 1;
+                            updateMap();
+                        }
+                        e.preventDefault();
+                        e.stopPropagation();
+                    } else if (e.code === 'ArrowRight') {
+                        if (year < END_YEAR) {
+                            slider.value = year + 1;
+                            updateMap();
+                        }
+                        e.preventDefault();
+                        e.stopPropagation();
+                    } else if (e.code === 'Space') {
+                        document.getElementById('playBtn').click();
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                }
+            });
+
+            setTimeout(() => {
+                const hint = document.getElementById('keyboardHint');
+                hint.classList.add('show');
+                setTimeout(() => {
+                    hint.classList.remove('show');
+                }, 4000);
+            }, 1000);
+        }
+
+        // Initialize everything
+        initMap();
+        initUtilityButtons(); // Initialize utility buttons early
+        loadData();
+    </script>
+</body>
+</html>
