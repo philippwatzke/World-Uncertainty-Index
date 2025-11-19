@@ -1176,10 +1176,18 @@
             }
 
             .legend {
-                bottom: 90px;
+                bottom: 160px;
                 right: 20px;
-                left: 20px;
+                left: auto;
                 min-width: auto;
+                max-width: calc(50% - 25px);
+                transition: opacity 0.3s ease, transform 0.3s ease;
+            }
+
+            .legend.hidden-mobile {
+                opacity: 0;
+                pointer-events: none;
+                transform: translateY(20px);
             }
 
             .legend-gradient {
@@ -1191,11 +1199,19 @@
             }
 
             .data-source {
-                bottom: 90px;
+                bottom: 160px;
                 left: 20px;
                 right: auto;
+                max-width: calc(50% - 25px);
                 font-size: 11px;
                 padding: 10px 14px;
+                transition: opacity 0.3s ease, transform 0.3s ease;
+            }
+
+            .data-source.hidden-mobile {
+                opacity: 0;
+                pointer-events: none;
+                transform: translateY(20px);
             }
 
             .keyboard-hint {
@@ -1318,23 +1334,26 @@
             }
 
             .legend {
-                bottom: 80px;
-                left: 15px;
+                bottom: 140px;
+                left: auto;
                 right: 15px;
+                max-width: calc(50% - 20px);
                 padding: 12px;
             }
 
             .legend-title {
-                font-size: 12px;
+                font-size: 11px;
             }
 
             .legend-labels {
-                font-size: 10px;
+                font-size: 9px;
             }
 
             .data-source {
-                bottom: 80px;
+                bottom: 140px;
                 left: 15px;
+                right: auto;
+                max-width: calc(50% - 20px);
                 font-size: 10px;
                 padding: 8px 12px;
             }
@@ -2410,10 +2429,28 @@
             // Hamburger menu toggle for mobile
             const hamburgerMenu = document.getElementById('hamburgerMenu');
             const infoPanel = document.querySelector('.info-panel');
+            const legend = document.querySelector('.legend');
+            const dataSource = document.querySelector('.data-source');
+
+            function toggleBottomElements() {
+                if (window.innerWidth <= 768) {
+                    const isExpanded = infoPanel.classList.contains('expanded');
+                    const isStatsVisible = document.getElementById('statsPanel').classList.contains('visible');
+
+                    if (isExpanded || isStatsVisible) {
+                        legend.classList.add('hidden-mobile');
+                        dataSource.classList.add('hidden-mobile');
+                    } else {
+                        legend.classList.remove('hidden-mobile');
+                        dataSource.classList.remove('hidden-mobile');
+                    }
+                }
+            }
 
             hamburgerMenu.addEventListener('click', function() {
                 this.classList.toggle('active');
                 infoPanel.classList.toggle('expanded');
+                toggleBottomElements();
             });
 
             // Info panel toggle on mobile (tap on header)
@@ -2422,6 +2459,7 @@
                 if (window.innerWidth <= 768) {
                     infoPanel.classList.toggle('expanded');
                     hamburgerMenu.classList.toggle('active');
+                    toggleBottomElements();
                 }
             });
 
@@ -2473,6 +2511,7 @@
                         statsPanel.classList.remove('visible');
                         toggleStatsBtn.classList.remove('active');
                         toggleStatsBtn.innerHTML = '📊 Statistiken anzeigen';
+                        toggleBottomElements();
                     }
 
                     // Close info panel if clicking on map
@@ -2481,6 +2520,7 @@
                         !e.target.closest('.hamburger-menu')) {
                         infoPanel.classList.remove('expanded');
                         hamburgerMenu.classList.remove('active');
+                        toggleBottomElements();
                     }
                 }
             });
@@ -2505,9 +2545,24 @@
                 if (window.innerWidth > 768) {
                     infoPanel.classList.remove('expanded');
                     hamburgerMenu.classList.remove('active');
+                    legend.classList.remove('hidden-mobile');
+                    dataSource.classList.remove('hidden-mobile');
                     document.body.style.overflow = '';
+                } else {
+                    toggleBottomElements();
                 }
             });
+
+            // Observe stats panel changes
+            const statsPanel = document.getElementById('statsPanel');
+            const statsPanelObserver = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.attributeName === 'class') {
+                        toggleBottomElements();
+                    }
+                });
+            });
+            statsPanelObserver.observe(statsPanel, { attributes: true, attributeFilter: ['class'] });
         }
 
         function setupEventListeners() {
