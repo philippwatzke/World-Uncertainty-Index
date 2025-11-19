@@ -1160,6 +1160,14 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <script>
+        /*
+         * Performance Optimizations Summary:
+         * 1. Debouncing: Search input waits 300ms after user stops typing before filtering
+         * 2. Throttling: Slider updates limited to max 10 updates/sec (100ms) while dragging
+         * 3. GeoJSON Caching: Data cached in localStorage for 24h to avoid repeated network requests
+         * 4. Lazy Loading: Country profile charts rendered after panel animation completes
+         */
+
         let map, geojsonLayer, wuiData, isPlaying = false, playInterval;
         const START_YEAR = 2015;
         const END_YEAR = 2025;
@@ -1167,9 +1175,34 @@
         let minUncertainty = 0;
         let allCountries = [];
         let viewMode = 'absolute';
-        
+
         // Tile layers for light and dark mode
         let lightTileLayer, darkTileLayer, currentTileLayer;
+
+        // Performance Optimization: Debounce Function
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Performance Optimization: Throttle Function
+        function throttle(func, limit) {
+            let inThrottle;
+            return function(...args) {
+                if (!inThrottle) {
+                    func.apply(this, args);
+                    inThrottle = true;
+                    setTimeout(() => inThrottle = false, limit);
+                }
+            };
+        }
 
         // Initialize utility buttons early
         function initUtilityButtons() {
@@ -1517,7 +1550,7 @@
 
         function openCountryProfile(countryName) {
             const year = parseInt(document.getElementById('yearSlider').value);
-            
+
             // Sammle alle Daten für dieses Land
             const countryData = [];
             for (let y = START_YEAR; y <= END_YEAR; y++) {
@@ -1526,35 +1559,40 @@
                     countryData.push({ year: y, value: value });
                 }
             }
-            
+
             if (countryData.length === 0) return;
-            
+
             // Aktueller Wert
             const currentValue = getUncertaintyValue(countryName, year);
-            
+
             // Durchschnitt über alle Jahre
             const average = countryData.reduce((sum, d) => sum + d.value, 0) / countryData.length;
-            
+
             // Ranking berechnen
             const allCurrentValues = wuiData.features
                 .filter(f => f.properties.year_num === year && f.properties.uncertainty_index != null)
                 .map(f => ({ name: f.properties.name, value: f.properties.uncertainty_index }))
                 .sort((a, b) => b.value - a.value);
-            
+
             const rank = allCurrentValues.findIndex(d => d.name === countryName) + 1;
-            
+
             // Fülle Panel
             document.getElementById('profileCountryName').textContent = countryName;
             document.getElementById('profileCurrent').textContent = currentValue ? currentValue.toFixed(1) : '-';
             document.getElementById('profileAverage').textContent = average.toFixed(1);
             document.getElementById('profileRank').textContent = `#${rank} / ${allCurrentValues.length}`;
-            
-            // Zeichne Chart
-            drawProfileChart(countryData, year);
-            
+
             // Zeige Panel
             document.getElementById('profileOverlay').classList.add('active');
             document.getElementById('countryProfile').classList.add('active');
+
+            // Performance Optimization: Lazy load chart rendering after panel animation
+            // This prevents blocking the UI thread during the opening animation
+            requestAnimationFrame(() => {
+                setTimeout(() => {
+                    drawProfileChart(countryData, year);
+                }, 100); // Small delay to allow panel animation to complete smoothly
+            });
         }
 
         function drawProfileChart(data, currentYear) {
@@ -1830,15 +1868,14 @@
             const searchInput = document.getElementById('countrySearch');
             const searchResults = document.getElementById('searchResults');
 
-            searchInput.addEventListener('input', (e) => {
-                const query = e.target.value.toLowerCase().trim();
-                
+            // Performance Optimization: Debounced search - delays search until user stops typing
+            const performSearch = debounce((query) => {
                 if (query.length < 2) {
                     searchResults.classList.remove('active');
                     return;
                 }
 
-                const matches = allCountries.filter(country => 
+                const matches = allCountries.filter(country =>
                     country.toLowerCase().includes(query)
                 ).slice(0, 10);
 
@@ -1852,6 +1889,11 @@
                 } else {
                     searchResults.classList.remove('active');
                 }
+            }, 300); // 300ms delay - waits for user to stop typing
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase().trim();
+                performSearch(query);
             });
 
             document.addEventListener('click', (e) => {
@@ -1869,9 +1911,68 @@
 
         async function loadData() {
             try {
+                // Performance Optimization: Cache GeoJSON data in localStorage
+                const CACHE_KEY = 'wui_geojson_cache';
+                const CACHE_VERSION_KEY = 'wui_cache_version';
+                const CURRENT_VERSION = '1.0'; // Increment this to invalidate cache
+                const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+                // Try to load from cache first
+                const cachedData = localStorage.getItem(CACHE_KEY);
+                const cachedVersion = localStorage.getItem(CACHE_VERSION_KEY);
+                const cacheTimestamp = localStorage.getItem(CACHE_KEY + '_timestamp');
+
+                if (cachedData && cachedVersion === CURRENT_VERSION && cacheTimestamp) {
+                    const age = Date.now() - parseInt(cacheTimestamp);
+                    if (age < CACHE_DURATION) {
+                        console.log('✓ Daten aus Cache geladen (schnell!)');
+                        wuiData = JSON.parse(cachedData);
+
+                        // Continue with initialization
+                        const allValues = wuiData.features
+                            .map(f => f.properties.uncertainty_index)
+                            .filter(v => v != null && !isNaN(v));
+
+                        minUncertainty = Math.min(...allValues);
+                        maxUncertainty = Math.max(...allValues);
+
+                        allCountries = [...new Set(wuiData.features.map(f => f.properties.name))].sort();
+
+                        const uniqueCountries = {};
+                        wuiData.features.forEach(feature => {
+                            const name = feature.properties.name;
+                            if (!uniqueCountries[name]) {
+                                uniqueCountries[name] = feature;
+                            }
+                        });
+
+                        const worldData = {
+                            type: 'FeatureCollection',
+                            features: Object.values(uniqueCountries)
+                        };
+
+                        geojsonLayer = L.geoJSON(worldData, {
+                            style: style,
+                            onEachFeature: onEachFeature
+                        }).addTo(map);
+
+                        document.getElementById('loadingContainer').style.display = 'none';
+
+                        updateLegend();
+                        updateStats();
+                        createEventMarkers();
+                        setupSearch();
+                        setupEventListeners();
+
+                        return;
+                    }
+                }
+
+                // Cache miss or expired - fetch from network
+                console.log('⌛ Lade Daten vom Server...');
                 let response;
                 const paths = ['wui_data.geojson', './wui_data.geojson', 'plots/wui_data.geojson'];
-                
+
                 for (const path of paths) {
                     try {
                         response = await fetch(path);
@@ -1883,12 +1984,22 @@
                         continue;
                     }
                 }
-                
+
                 if (!response || !response.ok) {
                     throw new Error('GeoJSON konnte nicht geladen werden.');
                 }
-                
+
                 wuiData = await response.json();
+
+                // Store in cache
+                try {
+                    localStorage.setItem(CACHE_KEY, JSON.stringify(wuiData));
+                    localStorage.setItem(CACHE_VERSION_KEY, CURRENT_VERSION);
+                    localStorage.setItem(CACHE_KEY + '_timestamp', Date.now().toString());
+                    console.log('✓ Daten im Cache gespeichert');
+                } catch (e) {
+                    console.warn('Cache speichern fehlgeschlagen (localStorage voll?):', e);
+                }
                 
                 const allValues = wuiData.features
                     .map(f => f.properties.uncertainty_index)
@@ -1943,17 +2054,17 @@
                     isPlaying = true;
                     this.textContent = '⏸ Pause';
                     this.classList.add('playing');
-                    
+
                     playInterval = setInterval(() => {
                         const slider = document.getElementById('yearSlider');
                         let year = parseInt(slider.value);
-                        
+
                         if (year >= END_YEAR) {
                             year = START_YEAR;
                         } else {
                             year++;
                         }
-                        
+
                         slider.value = year;
                         updateMap();
                     }, 1500);
@@ -1965,9 +2076,16 @@
                 }
             });
 
+            // Performance Optimization: Throttled slider - limits updates while dragging
+            const throttledUpdateMap = throttle(updateMap, 100); // Max 10 updates per second
+
             document.getElementById('yearSlider').addEventListener('input', function() {
-                updateMap();
-                
+                // Update year display immediately for smooth UX
+                document.getElementById('yearDisplay').textContent = this.value;
+
+                // Throttle the expensive map updates
+                throttledUpdateMap();
+
                 if (isPlaying) {
                     clearInterval(playInterval);
                     isPlaying = false;
