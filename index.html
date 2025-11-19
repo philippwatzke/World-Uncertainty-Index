@@ -419,20 +419,20 @@
         }
 
         .toggle-stats.active {
-            right: 360px;
+            right: 380px;
         }
 
         .stats-panel {
             position: absolute;
             top: 20px;
-            right: -340px;
+            right: -360px;
             z-index: 1000;
             background: white;
             padding: 20px;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            width: 320px;
-            max-height: 500px;
+            width: 340px;
+            max-height: 90vh;
             overflow-y: auto;
             transition: right 0.3s ease;
         }
@@ -508,7 +508,7 @@
         .global-stats-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 10px;
+            gap: 8px;
             margin-top: 10px;
         }
 
@@ -1026,6 +1026,131 @@
             text-align: center;
             margin-top: 2px;
         }
+
+        /* Histogram Styles */
+        .histogram-container {
+            height: 120px;
+            position: relative;
+            margin-top: 10px;
+        }
+
+        .histogram-bar {
+            position: absolute;
+            bottom: 0;
+            background: linear-gradient(to top, #3498db, #5dade2);
+            border-radius: 4px 4px 0 0;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .histogram-bar:hover {
+            background: linear-gradient(to top, #e74c3c, #ec7063);
+            transform: scaleY(1.05);
+        }
+
+        .histogram-label {
+            position: absolute;
+            bottom: -20px;
+            font-size: 9px;
+            color: #7f8c8d;
+            transform: translateX(-50%);
+            white-space: nowrap;
+        }
+
+        body.dark-mode .histogram-bar {
+            background: linear-gradient(to top, #2980b9, #3498db);
+        }
+
+        /* Regional Stats Styles */
+        .regional-stats-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .regional-stat-card {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+            transition: all 0.2s;
+        }
+
+        .regional-stat-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 2px 8px rgba(52, 152, 219, 0.2);
+        }
+
+        body.dark-mode .regional-stat-card {
+            background: #1a1a1a;
+        }
+
+        .regional-stat-header {
+            font-size: 13px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 6px;
+        }
+
+        body.dark-mode .regional-stat-header {
+            color: #e0e0e0;
+        }
+
+        .regional-stat-values {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #7f8c8d;
+        }
+
+        .regional-stat-value {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .regional-stat-value-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .regional-stat-value-number {
+            font-size: 13px;
+            font-weight: 700;
+            color: #3498db;
+            margin-top: 2px;
+        }
+
+        /* Enhanced Profile Stats */
+        .profile-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .profile-stat-card.full-width {
+            grid-column: span 2;
+        }
+
+        .trend-indicator {
+            display: inline-block;
+            margin-left: 5px;
+            font-size: 14px;
+        }
+
+        .trend-up {
+            color: #e74c3c;
+        }
+
+        .trend-down {
+            color: #2ecc71;
+        }
+
+        .trend-stable {
+            color: #95a5a6;
+        }
     </style>
 </head>
 <body>
@@ -1082,7 +1207,7 @@
 
     <div class="stats-panel" id="statsPanel">
         <h3>📊 Statistik-Dashboard</h3>
-        
+
         <div class="global-stats">
             <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">Globale Statistiken</div>
             <div class="global-stats-grid">
@@ -1094,7 +1219,20 @@
                     <div class="global-stat-label">Median</div>
                     <div class="global-stat-value" id="globalMedian">-</div>
                 </div>
+                <div class="global-stat-item">
+                    <div class="global-stat-label">Std. Abw.</div>
+                    <div class="global-stat-value" id="globalStdDev">-</div>
+                </div>
+                <div class="global-stat-item">
+                    <div class="global-stat-label">Volatilität</div>
+                    <div class="global-stat-value" id="globalVolatility">-</div>
+                </div>
             </div>
+        </div>
+
+        <div class="stat-section">
+            <h4>📊 VERTEILUNG</h4>
+            <div class="histogram-container" id="histogram"></div>
         </div>
 
         <div class="stat-section">
@@ -1105,6 +1243,11 @@
         <div class="stat-section">
             <h4>🟢 BOTTOM 5 - NIEDRIGSTE UNSICHERHEIT</h4>
             <ul class="country-list" id="bottomList"></ul>
+        </div>
+
+        <div class="stat-section">
+            <h4>🌍 REGIONALE STATISTIKEN</h4>
+            <div id="regionalStats"></div>
         </div>
     </div>
 
@@ -1139,8 +1282,24 @@
                 <div class="profile-stat-value" id="profileAverage">-</div>
             </div>
             <div class="profile-stat-card">
+                <div class="profile-stat-label">Minimum</div>
+                <div class="profile-stat-value" id="profileMin">-</div>
+            </div>
+            <div class="profile-stat-card">
+                <div class="profile-stat-label">Maximum</div>
+                <div class="profile-stat-value" id="profileMax">-</div>
+            </div>
+            <div class="profile-stat-card">
+                <div class="profile-stat-label">Volatilität</div>
+                <div class="profile-stat-value" id="profileVolatility">-</div>
+            </div>
+            <div class="profile-stat-card">
                 <div class="profile-stat-label">Ranking</div>
                 <div class="profile-stat-value" id="profileRank">-</div>
+            </div>
+            <div class="profile-stat-card full-width">
+                <div class="profile-stat-label">Trend</div>
+                <div class="profile-stat-value" id="profileTrend">-</div>
             </div>
         </div>
         <div class="profile-chart">
@@ -1167,6 +1326,75 @@
         let minUncertainty = 0;
         let allCountries = [];
         let viewMode = 'absolute';
+
+        // Region mapping for countries
+        const countryRegions = {
+            // Europe
+            'Albania': 'Europa', 'Austria': 'Europa', 'Belarus': 'Europa', 'Belgium': 'Europa',
+            'Bosnia and Herzegovina': 'Europa', 'Bulgaria': 'Europa', 'Croatia': 'Europa',
+            'Cyprus': 'Europa', 'Czech Republic': 'Europa', 'Denmark': 'Europa', 'Estonia': 'Europa',
+            'Finland': 'Europa', 'France': 'Europa', 'Germany': 'Europa', 'Greece': 'Europa',
+            'Hungary': 'Europa', 'Iceland': 'Europa', 'Ireland': 'Europa', 'Italy': 'Europa',
+            'Kosovo': 'Europa', 'Latvia': 'Europa', 'Lithuania': 'Europa', 'Luxembourg': 'Europa',
+            'Macedonia': 'Europa', 'Malta': 'Europa', 'Moldova': 'Europa', 'Montenegro': 'Europa',
+            'Netherlands': 'Europa', 'Norway': 'Europa', 'Poland': 'Europa', 'Portugal': 'Europa',
+            'Romania': 'Europa', 'Russia': 'Europa', 'Serbia': 'Europa', 'Slovakia': 'Europa',
+            'Slovenia': 'Europa', 'Spain': 'Europa', 'Sweden': 'Europa', 'Switzerland': 'Europa',
+            'Ukraine': 'Europa', 'United Kingdom': 'Europa',
+
+            // Asia
+            'Afghanistan': 'Asien', 'Armenia': 'Asien', 'Azerbaijan': 'Asien', 'Bahrain': 'Asien',
+            'Bangladesh': 'Asien', 'Bhutan': 'Asien', 'Brunei': 'Asien', 'Cambodia': 'Asien',
+            'China': 'Asien', 'Georgia': 'Asien', 'Hong Kong': 'Asien', 'India': 'Asien',
+            'Indonesia': 'Asien', 'Iran': 'Asien', 'Iraq': 'Asien', 'Israel': 'Asien',
+            'Japan': 'Asien', 'Jordan': 'Asien', 'Kazakhstan': 'Asien', 'Kuwait': 'Asien',
+            'Kyrgyzstan': 'Asien', 'Laos': 'Asien', 'Lebanon': 'Asien', 'Malaysia': 'Asien',
+            'Maldives': 'Asien', 'Mongolia': 'Asien', 'Myanmar': 'Asien', 'Nepal': 'Asien',
+            'North Korea': 'Asien', 'Oman': 'Asien', 'Pakistan': 'Asien', 'Palestine': 'Asien',
+            'Philippines': 'Asien', 'Qatar': 'Asien', 'Saudi Arabia': 'Asien', 'Singapore': 'Asien',
+            'South Korea': 'Asien', 'Sri Lanka': 'Asien', 'Syria': 'Asien', 'Taiwan': 'Asien',
+            'Tajikistan': 'Asien', 'Thailand': 'Asien', 'Turkey': 'Asien', 'Turkmenistan': 'Asien',
+            'United Arab Emirates': 'Asien', 'Uzbekistan': 'Asien', 'Vietnam': 'Asien', 'Yemen': 'Asien',
+
+            // North America
+            'Canada': 'Nordamerika', 'United States': 'Nordamerika', 'Mexico': 'Nordamerika',
+            'Belize': 'Nordamerika', 'Costa Rica': 'Nordamerika', 'El Salvador': 'Nordamerika',
+            'Guatemala': 'Nordamerika', 'Honduras': 'Nordamerika', 'Nicaragua': 'Nordamerika',
+            'Panama': 'Nordamerika',
+
+            // South America
+            'Argentina': 'Südamerika', 'Bolivia': 'Südamerika', 'Brazil': 'Südamerika',
+            'Chile': 'Südamerika', 'Colombia': 'Südamerika', 'Ecuador': 'Südamerika',
+            'Guyana': 'Südamerika', 'Paraguay': 'Südamerika', 'Peru': 'Südamerika',
+            'Suriname': 'Südamerika', 'Uruguay': 'Südamerika', 'Venezuela': 'Südamerika',
+
+            // Africa
+            'Algeria': 'Afrika', 'Angola': 'Afrika', 'Benin': 'Afrika', 'Botswana': 'Afrika',
+            'Burkina Faso': 'Afrika', 'Burundi': 'Afrika', 'Cameroon': 'Afrika', 'Cape Verde': 'Afrika',
+            'Central African Republic': 'Afrika', 'Chad': 'Afrika', 'Comoros': 'Afrika', 'Congo': 'Afrika',
+            'Democratic Republic of Congo': 'Afrika', 'Djibouti': 'Afrika', 'Egypt': 'Afrika',
+            'Equatorial Guinea': 'Afrika', 'Eritrea': 'Afrika', 'Ethiopia': 'Afrika', 'Gabon': 'Afrika',
+            'Gambia': 'Afrika', 'Ghana': 'Afrika', 'Guinea': 'Afrika', 'Guinea-Bissau': 'Afrika',
+            'Ivory Coast': 'Afrika', 'Kenya': 'Afrika', 'Lesotho': 'Afrika', 'Liberia': 'Afrika',
+            'Libya': 'Afrika', 'Madagascar': 'Afrika', 'Malawi': 'Afrika', 'Mali': 'Afrika',
+            'Mauritania': 'Afrika', 'Mauritius': 'Afrika', 'Morocco': 'Afrika', 'Mozambique': 'Afrika',
+            'Namibia': 'Afrika', 'Niger': 'Afrika', 'Nigeria': 'Afrika', 'Rwanda': 'Afrika',
+            'Sao Tome and Principe': 'Afrika', 'Senegal': 'Afrika', 'Seychelles': 'Afrika',
+            'Sierra Leone': 'Afrika', 'Somalia': 'Afrika', 'South Africa': 'Afrika', 'South Sudan': 'Afrika',
+            'Sudan': 'Afrika', 'Swaziland': 'Afrika', 'Tanzania': 'Afrika', 'Togo': 'Afrika',
+            'Tunisia': 'Afrika', 'Uganda': 'Afrika', 'Zambia': 'Afrika', 'Zimbabwe': 'Afrika',
+
+            // Oceania
+            'Australia': 'Ozeanien', 'Fiji': 'Ozeanien', 'New Zealand': 'Ozeanien',
+            'Papua New Guinea': 'Ozeanien', 'Samoa': 'Ozeanien', 'Solomon Islands': 'Ozeanien',
+            'Tonga': 'Ozeanien', 'Vanuatu': 'Ozeanien',
+
+            // Caribbean
+            'Antigua and Barbuda': 'Karibik', 'Bahamas': 'Karibik', 'Barbados': 'Karibik',
+            'Cuba': 'Karibik', 'Dominica': 'Karibik', 'Dominican Republic': 'Karibik',
+            'Grenada': 'Karibik', 'Haiti': 'Karibik', 'Jamaica': 'Karibik', 'Saint Lucia': 'Karibik',
+            'Saint Vincent and the Grenadines': 'Karibik', 'Trinidad and Tobago': 'Karibik'
+        };
         
         // Tile layers for light and dark mode
         let lightTileLayer, darkTileLayer, currentTileLayer;
@@ -1265,11 +1493,149 @@
 
         function getUncertaintyValue(countryName, year) {
             if (!wuiData || !wuiData.features) return null;
-            const data = wuiData.features.find(f => 
-                f.properties.name === countryName && 
+            const data = wuiData.features.find(f =>
+                f.properties.name === countryName &&
                 f.properties.year_num === year
             );
             return data ? data.properties.uncertainty_index : null;
+        }
+
+        // Calculate standard deviation
+        function calculateStdDev(values) {
+            if (values.length === 0) return 0;
+            const avg = values.reduce((a, b) => a + b, 0) / values.length;
+            const squareDiffs = values.map(value => Math.pow(value - avg, 2));
+            const avgSquareDiff = squareDiffs.reduce((a, b) => a + b, 0) / squareDiffs.length;
+            return Math.sqrt(avgSquareDiff);
+        }
+
+        // Calculate volatility (standard deviation of year-over-year changes)
+        function calculateVolatility(countryName) {
+            const changes = [];
+            for (let year = START_YEAR + 1; year <= END_YEAR; year++) {
+                const current = getUncertaintyValue(countryName, year);
+                const previous = getUncertaintyValue(countryName, year - 1);
+                if (current != null && previous != null) {
+                    changes.push(Math.abs(current - previous));
+                }
+            }
+            return changes.length > 0 ? changes.reduce((a, b) => a + b, 0) / changes.length : 0;
+        }
+
+        // Calculate global volatility
+        function calculateGlobalVolatility(year) {
+            const volatilities = [];
+            allCountries.forEach(country => {
+                const current = getUncertaintyValue(country, year);
+                const previous = getUncertaintyValue(country, year - 1);
+                if (current != null && previous != null) {
+                    volatilities.push(Math.abs(current - previous));
+                }
+            });
+            return volatilities.length > 0 ? volatilities.reduce((a, b) => a + b, 0) / volatilities.length : 0;
+        }
+
+        // Draw histogram
+        function drawHistogram() {
+            const year = parseInt(document.getElementById('yearSlider').value);
+            const container = document.getElementById('histogram');
+            container.innerHTML = '';
+
+            const yearData = wuiData.features
+                .filter(f => f.properties.year_num === year && f.properties.uncertainty_index != null)
+                .map(f => f.properties.uncertainty_index);
+
+            if (yearData.length === 0) return;
+
+            // Create bins
+            const numBins = 10;
+            const min = Math.min(...yearData);
+            const max = Math.max(...yearData);
+            const binSize = (max - min) / numBins;
+            const bins = Array(numBins).fill(0);
+
+            yearData.forEach(value => {
+                const binIndex = Math.min(Math.floor((value - min) / binSize), numBins - 1);
+                bins[binIndex]++;
+            });
+
+            const maxCount = Math.max(...bins);
+            const containerWidth = container.offsetWidth;
+            const barWidth = containerWidth / numBins - 2;
+
+            bins.forEach((count, i) => {
+                const bar = document.createElement('div');
+                bar.className = 'histogram-bar';
+                const height = (count / maxCount) * 100;
+                bar.style.height = height + 'px';
+                bar.style.left = (i * (containerWidth / numBins)) + 'px';
+                bar.style.width = barWidth + 'px';
+                bar.title = `${(min + i * binSize).toFixed(1)} - ${(min + (i + 1) * binSize).toFixed(1)}: ${count} Länder`;
+                container.appendChild(bar);
+
+                if (i % 2 === 0) {
+                    const label = document.createElement('div');
+                    label.className = 'histogram-label';
+                    label.textContent = (min + i * binSize).toFixed(0);
+                    label.style.left = (i * (containerWidth / numBins)) + barWidth / 2 + 'px';
+                    container.appendChild(label);
+                }
+            });
+        }
+
+        // Update regional statistics
+        function updateRegionalStats() {
+            const year = parseInt(document.getElementById('yearSlider').value);
+            const container = document.getElementById('regionalStats');
+
+            const regionalData = {};
+
+            // Collect data by region
+            wuiData.features
+                .filter(f => f.properties.year_num === year && f.properties.uncertainty_index != null)
+                .forEach(feature => {
+                    const country = feature.properties.name;
+                    const region = countryRegions[country] || 'Sonstige';
+                    const value = feature.properties.uncertainty_index;
+
+                    if (!regionalData[region]) {
+                        regionalData[region] = [];
+                    }
+                    regionalData[region].push(value);
+                });
+
+            // Calculate statistics per region
+            const regionalStats = Object.keys(regionalData).map(region => {
+                const values = regionalData[region];
+                const avg = values.reduce((a, b) => a + b, 0) / values.length;
+                const min = Math.min(...values);
+                const max = Math.max(...values);
+                const count = values.length;
+                return { region, avg, min, max, count };
+            }).sort((a, b) => b.avg - a.avg);
+
+            // Display regional statistics
+            container.innerHTML = '<div class="regional-stats-grid">' +
+                regionalStats.map(stat => `
+                    <div class="regional-stat-card">
+                        <div class="regional-stat-header">${stat.region} (${stat.count} Länder)</div>
+                        <div class="regional-stat-values">
+                            <div class="regional-stat-value">
+                                <div class="regional-stat-value-label">Ø</div>
+                                <div class="regional-stat-value-number">${stat.avg.toFixed(1)}</div>
+                            </div>
+                            <div class="regional-stat-value">
+                                <div class="regional-stat-value-label">Min</div>
+                                <div class="regional-stat-value-number">${stat.min.toFixed(1)}</div>
+                            </div>
+                            <div class="regional-stat-value">
+                                <div class="regional-stat-value-label">Max</div>
+                                <div class="regional-stat-value-number">${stat.max.toFixed(1)}</div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('') +
+            '</div>';
         }
 
         const events = [
@@ -1517,7 +1883,7 @@
 
         function openCountryProfile(countryName) {
             const year = parseInt(document.getElementById('yearSlider').value);
-            
+
             // Sammle alle Daten für dieses Land
             const countryData = [];
             for (let y = START_YEAR; y <= END_YEAR; y++) {
@@ -1526,32 +1892,57 @@
                     countryData.push({ year: y, value: value });
                 }
             }
-            
+
             if (countryData.length === 0) return;
-            
-            // Aktueller Wert
+
+            // Statistiken berechnen
+            const values = countryData.map(d => d.value);
             const currentValue = getUncertaintyValue(countryName, year);
-            
-            // Durchschnitt über alle Jahre
-            const average = countryData.reduce((sum, d) => sum + d.value, 0) / countryData.length;
-            
+            const average = values.reduce((sum, val) => sum + val, 0) / values.length;
+            const minValue = Math.min(...values);
+            const maxValue = Math.max(...values);
+            const volatility = calculateVolatility(countryName);
+
+            // Trend berechnen (lineare Regression vereinfacht)
+            const firstValue = countryData[0].value;
+            const lastValue = countryData[countryData.length - 1].value;
+            const totalChange = lastValue - firstValue;
+            const avgYearlyChange = totalChange / (countryData.length - 1);
+
+            let trendText = '';
+            let trendClass = '';
+            if (avgYearlyChange > 0.5) {
+                trendText = `Steigend <span class="trend-indicator trend-up">↗</span> (+${avgYearlyChange.toFixed(2)}/Jahr)`;
+                trendClass = 'trend-up';
+            } else if (avgYearlyChange < -0.5) {
+                trendText = `Fallend <span class="trend-indicator trend-down">↘</span> (${avgYearlyChange.toFixed(2)}/Jahr)`;
+                trendClass = 'trend-down';
+            } else {
+                trendText = `Stabil <span class="trend-indicator trend-stable">→</span> (${avgYearlyChange >= 0 ? '+' : ''}${avgYearlyChange.toFixed(2)}/Jahr)`;
+                trendClass = 'trend-stable';
+            }
+
             // Ranking berechnen
             const allCurrentValues = wuiData.features
                 .filter(f => f.properties.year_num === year && f.properties.uncertainty_index != null)
                 .map(f => ({ name: f.properties.name, value: f.properties.uncertainty_index }))
                 .sort((a, b) => b.value - a.value);
-            
+
             const rank = allCurrentValues.findIndex(d => d.name === countryName) + 1;
-            
+
             // Fülle Panel
             document.getElementById('profileCountryName').textContent = countryName;
             document.getElementById('profileCurrent').textContent = currentValue ? currentValue.toFixed(1) : '-';
             document.getElementById('profileAverage').textContent = average.toFixed(1);
+            document.getElementById('profileMin').textContent = minValue.toFixed(1);
+            document.getElementById('profileMax').textContent = maxValue.toFixed(1);
+            document.getElementById('profileVolatility').textContent = volatility.toFixed(2);
             document.getElementById('profileRank').textContent = `#${rank} / ${allCurrentValues.length}`;
-            
+            document.getElementById('profileTrend').innerHTML = trendText;
+
             // Zeichne Chart
             drawProfileChart(countryData, year);
-            
+
             // Zeige Panel
             document.getElementById('profileOverlay').classList.add('active');
             document.getElementById('countryProfile').classList.add('active');
@@ -1670,17 +2061,17 @@
 
         function updateStats() {
             const year = parseInt(document.getElementById('yearSlider').value);
-            
+
             if (viewMode === 'change') {
                 const changes = [];
-                
+
                 wuiData.features
                     .filter(f => f.properties.year_num === year)
                     .forEach(currentFeature => {
                         const countryName = currentFeature.properties.name;
                         const currentValue = currentFeature.properties.uncertainty_index;
                         const prevValue = getUncertaintyValue(countryName, year - 1);
-                        
+
                         if (currentValue != null && prevValue != null) {
                             const change = currentValue - prevValue;
                             changes.push({
@@ -1689,20 +2080,25 @@
                             });
                         }
                     });
-                
+
                 if (changes.length === 0) return;
-                
+
                 const sorted = [...changes].sort((a, b) => b.value - a.value);
                 const top5 = sorted.slice(0, 5);
                 const bottom5 = sorted.slice(-5).reverse();
-                
+
                 const values = changes.map(d => d.value);
                 const avg = values.reduce((a, b) => a + b, 0) / values.length;
-                const median = values.sort((a, b) => a - b)[Math.floor(values.length / 2)];
-                
+                const sortedValues = [...values].sort((a, b) => a - b);
+                const median = sortedValues[Math.floor(sortedValues.length / 2)];
+                const stdDev = calculateStdDev(values);
+                const volatility = calculateGlobalVolatility(year);
+
                 document.getElementById('globalAvg').textContent = (avg >= 0 ? '+' : '') + avg.toFixed(2);
                 document.getElementById('globalMedian').textContent = (median >= 0 ? '+' : '') + median.toFixed(2);
-                
+                document.getElementById('globalStdDev').textContent = stdDev.toFixed(2);
+                document.getElementById('globalVolatility').textContent = volatility.toFixed(2);
+
                 const topList = document.getElementById('topList');
                 topList.innerHTML = top5.map((item, idx) => {
                     const arrow = item.value > 0 ? '↑' : '↓';
@@ -1714,7 +2110,7 @@
                         </li>
                     `;
                 }).join('');
-                
+
                 const bottomList = document.getElementById('bottomList');
                 bottomList.innerHTML = bottom5.map((item, idx) => {
                     const arrow = item.value > 0 ? '↑' : '↓';
@@ -1726,11 +2122,14 @@
                         </li>
                     `;
                 }).join('');
-                
+
                 document.querySelector('#statsPanel h3').textContent = '📊 Änderungs-Dashboard';
-                document.querySelectorAll('.stat-section h4')[0].innerHTML = '🔴 TOP 5 - GRÖSSTE ZUNAHME';
-                document.querySelectorAll('.stat-section h4')[1].innerHTML = '🟢 TOP 5 - GRÖSSTE ABNAHME';
-                
+                const statHeaders = document.querySelectorAll('.stat-section h4');
+                if (statHeaders.length > 2) {
+                    statHeaders[1].innerHTML = '🔴 TOP 5 - GRÖSSTE ZUNAHME';
+                    statHeaders[2].innerHTML = '🟢 TOP 5 - GRÖSSTE ABNAHME';
+                }
+
             } else {
                 const yearData = wuiData.features
                     .filter(f => f.properties.year_num === year && f.properties.uncertainty_index)
@@ -1747,10 +2146,15 @@
 
                 const values = yearData.map(d => d.value);
                 const avg = values.reduce((a, b) => a + b, 0) / values.length;
-                const median = values.sort((a, b) => a - b)[Math.floor(values.length / 2)];
+                const sortedValues = [...values].sort((a, b) => a - b);
+                const median = sortedValues[Math.floor(sortedValues.length / 2)];
+                const stdDev = calculateStdDev(values);
+                const volatility = calculateGlobalVolatility(year);
 
                 document.getElementById('globalAvg').textContent = avg.toFixed(1);
                 document.getElementById('globalMedian').textContent = median.toFixed(1);
+                document.getElementById('globalStdDev').textContent = stdDev.toFixed(1);
+                document.getElementById('globalVolatility').textContent = volatility.toFixed(1);
 
                 const topList = document.getElementById('topList');
                 topList.innerHTML = top5.map((item, idx) => `
@@ -1767,11 +2171,18 @@
                         <span class="country-value">${item.value.toFixed(1)}</span>
                     </li>
                 `).join('');
-                
+
                 document.querySelector('#statsPanel h3').textContent = '📊 Statistik-Dashboard';
-                document.querySelectorAll('.stat-section h4')[0].innerHTML = '🔴 TOP 5 - HÖCHSTE UNSICHERHEIT';
-                document.querySelectorAll('.stat-section h4')[1].innerHTML = '🟢 BOTTOM 5 - NIEDRIGSTE UNSICHERHEIT';
+                const statHeaders = document.querySelectorAll('.stat-section h4');
+                if (statHeaders.length > 2) {
+                    statHeaders[1].innerHTML = '🔴 TOP 5 - HÖCHSTE UNSICHERHEIT';
+                    statHeaders[2].innerHTML = '🟢 BOTTOM 5 - NIEDRIGSTE UNSICHERHEIT';
+                }
             }
+
+            // Draw histogram and regional stats
+            drawHistogram();
+            updateRegionalStats();
         }
 
         function updateLegend() {
