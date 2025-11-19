@@ -98,7 +98,7 @@
         }
 
         .leaflet-interactive {
-            transition: fill 0.6s ease, fill-opacity 0.3s ease;
+            transition: fill 0.8s cubic-bezier(0.4, 0.0, 0.2, 1), fill-opacity 0.4s ease;
         }
 
         .info-panel {
@@ -1026,6 +1026,197 @@
             text-align: center;
             margin-top: 2px;
         }
+
+        /* Onboarding Tutorial Styles */
+        .tutorial-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 10000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+
+        .tutorial-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .tutorial-spotlight {
+            position: absolute;
+            border: 3px solid #3498db;
+            border-radius: 12px;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.85), 0 0 30px rgba(52, 152, 219, 0.6);
+            pointer-events: none;
+            transition: all 0.5s cubic-bezier(0.4, 0.0, 0.2, 1);
+            z-index: 10001;
+        }
+
+        .tutorial-card {
+            position: fixed;
+            background: white;
+            padding: 25px 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            z-index: 10002;
+            transform: scale(0.9);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        body.dark-mode .tutorial-card {
+            background: #2d2d2d;
+            color: #e0e0e0;
+        }
+
+        .tutorial-card.active {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        .tutorial-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .tutorial-icon {
+            font-size: 32px;
+        }
+
+        .tutorial-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin: 0;
+        }
+
+        body.dark-mode .tutorial-title {
+            color: #e0e0e0;
+        }
+
+        .tutorial-content {
+            font-size: 15px;
+            line-height: 1.6;
+            color: #5a6c7d;
+            margin-bottom: 20px;
+        }
+
+        body.dark-mode .tutorial-content {
+            color: #a0a0a0;
+        }
+
+        .tutorial-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .tutorial-progress {
+            font-size: 13px;
+            color: #7f8c8d;
+            font-weight: 600;
+        }
+
+        .tutorial-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .tutorial-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+
+        .tutorial-btn-skip {
+            background: #e0e0e0;
+            color: #5a6c7d;
+        }
+
+        .tutorial-btn-skip:hover {
+            background: #d0d0d0;
+        }
+
+        body.dark-mode .tutorial-btn-skip {
+            background: #404040;
+            color: #a0a0a0;
+        }
+
+        body.dark-mode .tutorial-btn-skip:hover {
+            background: #4a4a4a;
+        }
+
+        .tutorial-btn-next {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .tutorial-btn-next:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .tutorial-btn-start {
+            position: absolute;
+            bottom: 180px;
+            left: 30px;
+            z-index: 1003;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            font-weight: 600;
+            color: white;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .tutorial-btn-start:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        /* Pulse animation for help button */
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            }
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 6px 25px rgba(102, 126, 234, 0.5);
+            }
+        }
+
+        .tutorial-btn-start.pulse {
+            animation: pulse 2s infinite;
+        }
+
+        /* Enhanced tooltips */
+        .enhanced-tooltip {
+            padding: 3px 8px;
+            background: rgba(52, 152, 219, 0.1);
+            border-radius: 4px;
+            font-weight: 600;
+            color: #3498db;
+        }
+
+        body.dark-mode .enhanced-tooltip {
+            background: rgba(52, 152, 219, 0.2);
+        }
     </style>
 </head>
 <body>
@@ -1042,6 +1233,25 @@
             <kbd>Leertaste</kbd>
         </span>
     </div>
+
+    <!-- Tutorial Elements -->
+    <div class="tutorial-overlay" id="tutorialOverlay"></div>
+    <div class="tutorial-spotlight" id="tutorialSpotlight"></div>
+    <div class="tutorial-card" id="tutorialCard">
+        <div class="tutorial-header">
+            <span class="tutorial-icon" id="tutorialIcon">👋</span>
+            <h3 class="tutorial-title" id="tutorialTitle">Willkommen!</h3>
+        </div>
+        <div class="tutorial-content" id="tutorialContent"></div>
+        <div class="tutorial-footer">
+            <span class="tutorial-progress" id="tutorialProgress">1 / 6</span>
+            <div class="tutorial-buttons">
+                <button class="tutorial-btn tutorial-btn-skip" id="tutorialSkip">Überspringen</button>
+                <button class="tutorial-btn tutorial-btn-next" id="tutorialNext">Weiter →</button>
+            </div>
+        </div>
+    </div>
+    <button class="tutorial-btn-start" id="tutorialStartBtn">❓ Tutorial starten</button>
 
     <!-- Utility Buttons -->
     <div class="utility-buttons">
@@ -1454,32 +1664,53 @@
 
             const year = parseInt(document.getElementById('yearSlider').value);
             const countryName = layer.feature.properties.name;
-            const countryData = wuiData.features.find(f => 
-                f.properties.name === countryName && 
+            const countryData = wuiData.features.find(f =>
+                f.properties.name === countryName &&
                 f.properties.year_num === year
             );
 
             if (countryData) {
+                // Calculate ranking
+                const allCurrentValues = wuiData.features
+                    .filter(f => f.properties.year_num === year && f.properties.uncertainty_index != null)
+                    .map(f => ({ name: f.properties.name, value: f.properties.uncertainty_index }))
+                    .sort((a, b) => b.value - a.value);
+
+                const rank = allCurrentValues.findIndex(d => d.name === countryName) + 1;
+                const totalCountries = allCurrentValues.length;
+
+                // Calculate global average for context
+                const globalAvg = allCurrentValues.reduce((sum, d) => sum + d.value, 0) / allCurrentValues.length;
+                const deviation = countryData.properties.uncertainty_index - globalAvg;
+                const deviationText = deviation > 0 ?
+                    `<span class="enhanced-tooltip">+${deviation.toFixed(1)}</span> über Durchschnitt` :
+                    `<span class="enhanced-tooltip">${deviation.toFixed(1)}</span> unter Durchschnitt`;
+
                 let tooltipContent = `
                     <div class="tooltip-country">${countryData.properties.name}</div>
                     <div class="tooltip-value">${countryData.properties.uncertainty_index.toFixed(1)}</div>
+                    <div style="margin-top: 6px; font-size: 11px; color: #7f8c8d;">
+                        Rang: <strong>#${rank}</strong> von ${totalCountries}<br>
+                        ${deviationText}
+                    </div>
                 `;
-                
-                if (viewMode === 'change' && year > 2014) {
-                    const prevData = wuiData.features.find(f => 
-                        f.properties.name === countryName && 
+
+                if (viewMode === 'change' && year > 2015) {
+                    const prevData = wuiData.features.find(f =>
+                        f.properties.name === countryName &&
                         f.properties.year_num === year - 1
                     );
                     if (prevData) {
                         const change = countryData.properties.uncertainty_index - prevData.properties.uncertainty_index;
                         const arrow = change > 0 ? '↑' : '↓';
                         const color = change > 0 ? '#e74c3c' : '#2ecc71';
-                        tooltipContent += `<div style="margin-top: 4px; color: ${color}; font-size: 12px;">${arrow} ${Math.abs(change).toFixed(1)} seit ${year - 1}</div>`;
+                        const changePercent = ((change / prevData.properties.uncertainty_index) * 100).toFixed(1);
+                        tooltipContent += `<div style="margin-top: 4px; color: ${color}; font-size: 12px;">${arrow} ${Math.abs(change).toFixed(1)} seit ${year - 1} (${changePercent}%)</div>`;
                     }
                 }
-                
+
                 tooltipContent += createSparkline(countryName, year);
-                
+
                 layer.bindTooltip(tooltipContent, {
                     permanent: false,
                     direction: 'top',
@@ -1797,12 +2028,27 @@
             }
         }
 
-        function updateMap() {
+        function updateMap(animated = true) {
             const year = parseInt(document.getElementById('yearSlider').value);
             document.getElementById('yearDisplay').textContent = year;
-            
+
             if (geojsonLayer) {
-                geojsonLayer.setStyle(style);
+                // Add a subtle animation effect when updating
+                if (animated) {
+                    geojsonLayer.eachLayer(layer => {
+                        const currentStyle = layer.options;
+                        layer.setStyle({
+                            ...currentStyle,
+                            fillOpacity: 0.6
+                        });
+                    });
+
+                    setTimeout(() => {
+                        geojsonLayer.setStyle(style);
+                    }, 50);
+                } else {
+                    geojsonLayer.setStyle(style);
+                }
             }
 
             updateStats();
@@ -2049,10 +2295,168 @@
             }, 1000);
         }
 
+        // Tutorial System
+        const tutorialSteps = [
+            {
+                icon: '👋',
+                title: 'Willkommen!',
+                content: 'Willkommen beim <strong>World Uncertainty Index</strong>! Diese interaktive Visualisierung zeigt die weltweite Unsicherheit von 2015 bis 2025. Lassen Sie mich Ihnen die wichtigsten Funktionen zeigen.',
+                target: null,
+                position: { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
+            },
+            {
+                icon: '🎚️',
+                title: 'Zeitreise-Slider',
+                content: 'Mit diesem Slider können Sie durch die Jahre navigieren. Nutzen Sie auch die <span class="enhanced-tooltip">Pfeiltasten ← →</span> für schnelle Navigation oder die <span class="enhanced-tooltip">Leertaste</span> zum Abspielen.',
+                target: '.slider-container',
+                position: { top: '30%', left: '50%', transform: 'translate(-50%, -50%)' }
+            },
+            {
+                icon: '🗺️',
+                title: 'Interaktive Karte',
+                content: 'Bewegen Sie die Maus über ein Land für detaillierte Informationen. <strong>Klicken Sie auf ein Land</strong>, um ein ausführliches Profil mit historischen Daten anzuzeigen.',
+                target: '#map',
+                position: { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
+            },
+            {
+                icon: '📊',
+                title: 'Ansichtsmodi',
+                content: 'Wechseln Sie zwischen <span class="enhanced-tooltip">Absolut</span> (zeigt aktuelle Werte) und <span class="enhanced-tooltip">Änderung</span> (zeigt Veränderung zum Vorjahr). Die Farben passen sich automatisch an!',
+                target: '.view-mode-toggle',
+                position: { top: '40%', left: '50%', transform: 'translate(-50%, -50%)' }
+            },
+            {
+                icon: '📈',
+                title: 'Statistik-Dashboard',
+                content: 'Öffnen Sie das Dashboard für globale Statistiken, Top-5-Rankings und mehr. Klicken Sie auf ein Land in der Liste, um direkt dorthin zu zoomen!',
+                target: '#toggleStats',
+                position: { top: '30%', right: '400px', transform: 'translateY(-50%)' }
+            },
+            {
+                icon: '✨',
+                title: 'Viel Spaß!',
+                content: 'Sie sind bereit! Entdecken Sie globale Unsicherheitstrends, vergleichen Sie Länder und nutzen Sie die Suchfunktion, um spezifische Länder zu finden. Viel Spaß beim Erkunden! 🌍',
+                target: null,
+                position: { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
+            }
+        ];
+
+        let currentTutorialStep = 0;
+        let isTutorialActive = false;
+
+        function startTutorial() {
+            isTutorialActive = true;
+            currentTutorialStep = 0;
+            showTutorialStep(0);
+            document.getElementById('tutorialOverlay').classList.add('active');
+            document.getElementById('tutorialStartBtn').style.display = 'none';
+        }
+
+        function showTutorialStep(stepIndex) {
+            const step = tutorialSteps[stepIndex];
+            const card = document.getElementById('tutorialCard');
+            const spotlight = document.getElementById('tutorialSpotlight');
+
+            // Update content
+            document.getElementById('tutorialIcon').textContent = step.icon;
+            document.getElementById('tutorialTitle').textContent = step.title;
+            document.getElementById('tutorialContent').innerHTML = step.content;
+            document.getElementById('tutorialProgress').textContent = `${stepIndex + 1} / ${tutorialSteps.length}`;
+
+            // Update button text
+            const nextBtn = document.getElementById('tutorialNext');
+            if (stepIndex === tutorialSteps.length - 1) {
+                nextBtn.textContent = 'Fertig! ✓';
+            } else {
+                nextBtn.textContent = 'Weiter →';
+            }
+
+            // Position card
+            card.style.top = step.position.top || 'auto';
+            card.style.left = step.position.left || 'auto';
+            card.style.right = step.position.right || 'auto';
+            card.style.bottom = step.position.bottom || 'auto';
+            card.style.transform = step.position.transform || 'none';
+
+            // Show spotlight on target element
+            if (step.target) {
+                const targetElement = document.querySelector(step.target);
+                if (targetElement) {
+                    const rect = targetElement.getBoundingClientRect();
+                    spotlight.style.top = rect.top + 'px';
+                    spotlight.style.left = rect.left + 'px';
+                    spotlight.style.width = rect.width + 'px';
+                    spotlight.style.height = rect.height + 'px';
+                    spotlight.style.opacity = '1';
+                    spotlight.style.pointerEvents = 'none';
+                }
+            } else {
+                spotlight.style.opacity = '0';
+            }
+
+            // Animate card
+            setTimeout(() => {
+                card.classList.add('active');
+            }, 100);
+        }
+
+        function nextTutorialStep() {
+            const card = document.getElementById('tutorialCard');
+            card.classList.remove('active');
+
+            setTimeout(() => {
+                currentTutorialStep++;
+                if (currentTutorialStep >= tutorialSteps.length) {
+                    endTutorial();
+                } else {
+                    showTutorialStep(currentTutorialStep);
+                }
+            }, 300);
+        }
+
+        function endTutorial() {
+            isTutorialActive = false;
+            document.getElementById('tutorialOverlay').classList.remove('active');
+            document.getElementById('tutorialCard').classList.remove('active');
+            document.getElementById('tutorialSpotlight').style.opacity = '0';
+            localStorage.setItem('wui_tutorial_completed', 'true');
+
+            // Show tutorial button again
+            setTimeout(() => {
+                document.getElementById('tutorialStartBtn').style.display = 'block';
+                document.getElementById('tutorialStartBtn').classList.remove('pulse');
+            }, 500);
+        }
+
+        function initTutorial() {
+            // Check if user has completed tutorial before
+            const hasCompletedTutorial = localStorage.getItem('wui_tutorial_completed') === 'true';
+
+            // Event listeners
+            document.getElementById('tutorialStartBtn').addEventListener('click', startTutorial);
+            document.getElementById('tutorialNext').addEventListener('click', nextTutorialStep);
+            document.getElementById('tutorialSkip').addEventListener('click', endTutorial);
+            document.getElementById('tutorialOverlay').addEventListener('click', endTutorial);
+
+            // Auto-start tutorial for first-time users after a delay
+            if (!hasCompletedTutorial) {
+                setTimeout(() => {
+                    document.getElementById('tutorialStartBtn').classList.add('pulse');
+                }, 2000);
+
+                setTimeout(() => {
+                    startTutorial();
+                }, 5000);
+            }
+        }
+
         // Initialize everything
         initMap();
         initUtilityButtons(); // Initialize utility buttons early
-        loadData();
+        loadData().then(() => {
+            // Initialize tutorial after data is loaded
+            initTutorial();
+        });
     </script>
 </body>
 </html>
